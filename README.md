@@ -10,9 +10,17 @@ python app.py
 
 Open `http://127.0.0.1:5000`.
 
-Initial admin login:
+Initial admin login in local development:
 
 - Admin: `vikash@aapti.local` / `vikash123`
+
+For a testing or production deployment, set these environment variables before the first app start so the empty database creates the correct first admin:
+
+```powershell
+$env:AAPTI_ADMIN_NAME="Admin"
+$env:AAPTI_ADMIN_EMAIL="admin@example.com"
+$env:AAPTI_ADMIN_PASSWORD="temporary-password"
+```
 
 After signing in, open **Admin Users** to create manager, employee, and client accounts with their own email addresses and password setup links.
 

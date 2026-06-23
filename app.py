@@ -229,7 +229,10 @@ def init_db():
     if "performance_summary" not in content_columns:
         con.execute("ALTER TABLE content_items ADD COLUMN performance_summary TEXT")
     if not con.execute("SELECT 1 FROM users").fetchone():
-        con.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",("Vikash","vikash@aapti.local",generate_password_hash("vikash123"),"admin"))
+        admin_name = os.getenv("AAPTI_ADMIN_NAME", "Vikash")
+        admin_email = os.getenv("AAPTI_ADMIN_EMAIL", "vikash@aapti.local")
+        admin_password = os.getenv("AAPTI_ADMIN_PASSWORD", "vikash123")
+        con.execute("INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)",(admin_name,admin_email,generate_password_hash(admin_password),"admin"))
     con.execute("UPDATE users SET role='admin' WHERE lower(email)='vikash@aapti.local' AND role='manager'")
     con.commit(); con.close()
 
