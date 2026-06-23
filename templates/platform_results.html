@@ -1,0 +1,23 @@
+<div class="results-grid">
+  {% for result in result_cards %}
+  <article class="surface result-card">
+    <div>
+      <span>{{result.service_name or result.result_type}}</span>
+      <small>{{result.period_start or '' }}{% if result.period_start and result.period_end %} → {% endif %}{{result.period_end or 'Latest'}}</small>
+    </div>
+    <h3>{{result.title}}</h3>
+    {% if result.metric_label or result.metric_value %}
+    <strong>{{result.metric_value or 'Updated'}}</strong>
+    <p>{{result.metric_label or result.result_type}}{% if result.comparison %} · {{result.comparison}}{% endif %}</p>
+    {% endif %}
+    {% if result.summary %}<p>{{result.summary}}</p>{% endif %}
+    <footer>
+      <small>{{result.client_name}}{% if result.project_name %} · {{result.project_name}}{% endif %}</small>
+      {% if result.task_title %}<small>Task: {{result.task_title}}</small>{% endif %}
+      {% if result.content_title %}<small>Content: {{result.content_title}}</small>{% endif %}
+    </footer>
+  </article>
+  {% else %}
+  <div class="empty-state surface">No results recorded yet.</div>
+  {% endfor %}
+</div>

@@ -1,0 +1,40 @@
+<div class="workstream-grid">
+  {% for stream in workstreams %}
+  <article class="surface workstream-card">
+    <div class="workstream-top">
+      <span class="health {{stream.health|lower|replace(' ','-')}}">{{stream.health}}</span>
+      <small>{{stream.service_names}}</small>
+    </div>
+    <h3>{{stream.name}}</h3>
+    <p>{{stream.client_name}} · {{stream.manager_name}}</p>
+    <div class="workstream-progress">
+      <div><strong>{{stream.progress}}%</strong><small>{{stream.done_tasks}}/{{stream.total_tasks}} done</small></div>
+      <div class="progress"><span style="width:{{stream.progress}}%"></span></div>
+    </div>
+    <div class="workstream-meta">
+      <span><small>Start</small><strong>{{stream.start_date or 'Not set'}}</strong></span>
+      <span><small>Due</small><strong>{{stream.due_date or 'Not set'}}</strong></span>
+      <span><small>Late</small><strong>{{stream.late_tasks}}</strong></span>
+    </div>
+    <div class="workstream-next">
+      <small>Next task</small>
+      <strong>{{stream.next_task.title if stream.next_task else 'Nothing pending'}}</strong>
+      <span>{{stream.next_task.due_date if stream.next_task and stream.next_task.due_date else 'No due date'}}</span>
+    </div>
+    <details class="workstream-stages">
+      <summary>Stage progress</summary>
+      {% for stage in stream.stages[:8] %}
+      <div>
+        <span>{{stage.name}}</span>
+        <div class="progress"><span style="width:{{stage.progress}}%"></span></div>
+        <b>{{stage.done}}/{{stage.total}}</b>
+      </div>
+      {% else %}
+      <p class="muted">No stages yet.</p>
+      {% endfor %}
+    </details>
+  </article>
+  {% else %}
+  <div class="empty-state surface">No service workstreams yet.</div>
+  {% endfor %}
+</div>

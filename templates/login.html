@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Aapti</title>
+  <link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-story">
+      <a class="brand"><span class="brand-mark">A</span><strong>Aapti</strong><small>OS</small></a>
+      <div>
+        <p class="eyebrow">THE AGENCY COMMAND CENTER</p>
+        <h1>Run the work.<br><em>See the whole story.</em></h1>
+        <p>Clients, creative, approvals and commercial clarity in one calm operating system.</p>
+      </div>
+      <div class="quote">The week finally feels visible. <span>- Agency operations</span></div>
+    </section>
+    <section class="auth-form">
+      <div class="mobile-brand"><span class="brand-mark">A</span> Aapti</div>
+      <p class="eyebrow">WELCOME BACK</p>
+      <h2>{{ 'Set a new password' if reset else 'Reset your password' if forgot else 'Good to see you' }}</h2>
+      <p>{{ 'Choose a private password for this account.' if reset else 'Enter your work email and we will prepare the next step.' if forgot else 'Sign in to continue to your workspace.' }}</p>
+      {% with messages=get_flashed_messages(with_categories=true) %}{% for cat,msg in messages %}<div class="flash {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}
+      <form method="post">
+        {% if reset %}
+          <label>New password<input name="password" type="password" minlength="8" required></label>
+          <label>Confirm password<input name="confirm_password" type="password" minlength="8" required></label>
+          <button class="primary" type="submit">Save password <i data-lucide="arrow-right"></i></button>
+          <a class="back" href="{{url_for('login')}}">Back to sign in</a>
+        {% elif not forgot %}
+          <label>Work email<input name="email" type="email" required></label>
+          <label>Password<input name="password" type="password" required></label>
+          <div class="form-line"><label class="check"><input type="checkbox" checked> Keep me signed in</label><a href="{{url_for('forgot_password')}}">Forgot password?</a></div>
+          <button class="primary" type="submit">Enter workspace <i data-lucide="arrow-right"></i></button>
+        {% else %}
+          <label>Work email<input name="email" type="email" required></label>
+          <button class="primary" type="submit">Prepare reset link</button>
+          {% if reset_link %}<p class="demo">Local reset link:<br><a href="{{reset_link}}">{{reset_link}}</a></p>{% endif %}
+          <a class="back" href="{{url_for('login')}}">Back to sign in</a>
+        {% endif %}
+      </form>
+    </section>
+  </main>
+  <script>addEventListener('DOMContentLoaded',()=>lucide.createIcons())</script>
+</body>
+</html>

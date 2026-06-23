@@ -1,0 +1,94 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">CRM TO CLIENT</p>
+    <h1>Convert {{lead.company}}</h1>
+    <p>Confirm the services, owner, timeline and scope before creating the client workspace.</p>
+  </div>
+  <a class="light-button" href="{{url_for('crm_view')}}">← Back to CRM</a>
+</div>
+
+<form method="post" action="{{url_for('prepare_lead_conversion',lead_id=lead.id)}}" class="conversion-layout">
+  <article class="surface conversion-main">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">STEP 1</p>
+        <h2>Client and handoff details</h2>
+      </div>
+      <span class="status {{lead.stage|lower|replace(' ','-')}}">{{lead.stage}}</span>
+    </div>
+    <div class="conversion-lead-card">
+      <span><small>Company</small><strong>{{lead.company}}</strong></span>
+      <span><small>Contact</small><strong>{{lead.contact_name or 'Not set'}}</strong></span>
+      <span><small>Interest</small><strong>{{lead.service_interest or 'Not set'}}</strong></span>
+      <span><small>Pipeline value</small><strong>₹{{'{:,.0f}'.format(lead.expected_value or 0)}}</strong></span>
+    </div>
+    <div class="form-pair">
+      <label>Account manager
+        <select name="account_manager_id">
+          <option value="">Use current owner / assign later</option>
+          {% for p in people if p.role!='client' %}
+          <option value="{{p.id}}" {{'selected' if p.id==lead.owner_id}}>{{p.name}}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Start date
+        <input type="date" name="start_date" value="{{default_start}}">
+      </label>
+    </div>
+    <div class="form-pair">
+      <label>Promised timeline / target end
+        <input type="date" name="due_date" value="{{default_due}}">
+      </label>
+      <label>Contact email
+        <input value="{{lead.email or ''}}" disabled>
+      </label>
+    </div>
+    <label>Scope/package promised
+      <textarea name="scope" rows="5" placeholder="What did we promise, what should delivery know?">{{lead.notes or ''}}</textarea>
+    </label>
+  </article>
+
+  <aside class="surface conversion-side">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">STEP 2</p>
+        <h2>Services opted for</h2>
+      </div>
+    </div>
+    <div class="conversion-services">
+      {% for service in services %}
+      <label>
+        <input type="checkbox" name="service_id" value="{{service.id}}" {{'checked' if service.id in suggested_service_ids}}>
+        <span>
+          <strong>{{service.name}}</strong>
+          <small>{{service.description}}</small>
+          <em>{{service_stages[service.id]|length}} stages · {{service_task_templates[service.id]|length or service_stages[service.id]|length}} starter tasks</em>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+    <label class="check-row conversion-task-option">
+      <input type="checkbox" name="create_starter_tasks">
+      Create suggested starter tasks after conversion
+    </label>
+    <p class="form-hint">This creates the client record and workstreams. Create the client portal login separately in Admin Users and link it to this client.</p>
+    <button class="primary conversion-submit">Create client workspace</button>
+  </aside>
+
+  <article class="surface conversion-preview">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">STEP 3</p>
+        <h2>What will be created</h2>
+      </div>
+    </div>
+    <div class="service-grid compact">
+      {% for service in services %}
+      <article class="service-card">
+        <div class="service-top"><span style="background:{{service.color}}"></span><div><h2>{{service.name}}</h2><p>Workstream template</p></div></div>
+        <ol>{% for task in service_task_templates[service.id][:5] %}<li><span>{{loop.index}}</span><strong>{{task[1]}}</strong>{% if task[5] %}<b>Client visible</b>{% endif %}</li>{% else %}{% for stage in service_stages[service.id] %}<li><span>{{stage.position}}</span><strong>{{stage.name}}</strong>{% if stage.client_approval %}<b>Client approval</b>{% endif %}</li>{% endfor %}{% endfor %}</ol>
+      </article>
+      {% endfor %}
+    </div>
+  </article>
+</form>

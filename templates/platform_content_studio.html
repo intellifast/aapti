@@ -1,0 +1,124 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">SOCIAL & CONTENT</p>
+    <h1>{{'Content Calendar' if content_mode=='calendar' else 'Creator Studio' if content_mode=='studio' else 'Content approvals' if content_mode=='approvals' else 'Content performance'}}</h1>
+    <p>{{'Plan publishing dates across platforms and clients.' if content_mode=='calendar' else 'Move ideas, scripts, captions and creative production forward.' if content_mode=='studio' else 'Track every content item waiting for client decision.' if content_mode=='approvals' else 'Review published content, result notes and performance learnings.'}}</p>
+  </div>
+  {% if current_user.role!='client' %}
+  <details class="action-menu">
+    <summary class="primary"><i data-lucide="plus"></i>Add content</summary>
+    <form method="post" action="{{url_for('create_content')}}" class="quick-form wide-form">
+      <h3>New content item</h3>
+      <input name="title" placeholder="Content title" required>
+      <select name="client_id"><option value="">Client</option>{% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select>
+      <select name="project_id"><option value="">Campaign/project</option>{% for p in projects %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select>
+      <select name="service_id"><option value="">Service/workstream</option>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select>
+      <div class="form-pair">
+        <select name="platform"><option>Instagram</option><option>LinkedIn</option><option>YouTube</option><option>Facebook</option><option>Website</option><option>Email</option><option>UGC</option></select>
+        <select name="format"><option>Reel</option><option>Carousel</option><option>Post</option><option>Story</option><option>Blog</option><option>Ad</option><option>UGC Video</option><option>Email</option></select>
+      </div>
+      <input name="pillar" placeholder="Content pillar">
+      <select name="owner_id"><option value="">Owner</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select>
+      <textarea name="idea" placeholder="Idea"></textarea>
+      <textarea name="brief" placeholder="Brief / creative direction"></textarea>
+      <textarea name="script" placeholder="Script / talking points"></textarea>
+      <textarea name="caption" placeholder="Caption / copy"></textarea>
+      <textarea name="creative_reference" placeholder="Creative/reference link or asset notes"></textarea>
+      <div class="form-pair"><select name="status">{% for s in content_statuses %}<option>{{s}}</option>{% endfor %}</select><input type="date" name="publish_date"></div>
+      <textarea name="performance_summary" placeholder="Performance summary after publishing"></textarea>
+      <textarea name="result_notes" placeholder="Result notes / learnings"></textarea>
+      <label class="check-row"><input type="checkbox" name="client_visible" checked>Visible to client</label>
+      <button class="primary">Add to studio</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+
+<div class="content-tabs">
+  <a class="{{'active' if content_mode=='calendar'}}" href="{{url_for('content_view',mode='calendar',month=content_filters.month)}}"><i data-lucide="calendar-days"></i><span>Calendar</span><b>{{content_counts.calendar}}</b></a>
+  <a class="{{'active' if content_mode=='studio'}}" href="{{url_for('content_view',mode='studio')}}"><i data-lucide="layout-panel-top"></i><span>Creator Studio</span><b>{{content_counts.studio}}</b></a>
+  <a class="{{'active' if content_mode=='approvals'}}" href="{{url_for('content_view',mode='approvals',approval='waiting')}}"><i data-lucide="stamp"></i><span>Approvals</span><b>{{content_counts.approvals}}</b></a>
+  <a class="{{'active' if content_mode=='performance'}}" href="{{url_for('content_view',mode='performance')}}"><i data-lucide="line-chart"></i><span>Performance</span><b>{{content_counts.performance}}</b></a>
+</div>
+
+<form method="get" action="{{url_for('content_view')}}" class="content-filter">
+  <input type="hidden" name="mode" value="{{content_mode}}">
+  <select name="client_id"><option value="">All clients</option>{% for c in clients %}<option value="{{c.id}}" {{'selected' if content_filters.client_id|string==c.id|string}}>{{c.name}}</option>{% endfor %}</select>
+  <select name="project_id"><option value="">All projects</option>{% for p in projects %}<option value="{{p.id}}" {{'selected' if content_filters.project_id|string==p.id|string}}>{{p.name}}</option>{% endfor %}</select>
+  <select name="service_id"><option value="">All services</option>{% for s in services %}<option value="{{s.id}}" {{'selected' if content_filters.service_id|string==s.id|string}}>{{s.name}}</option>{% endfor %}</select>
+  <select name="platform"><option value="">All platforms</option>{% for platform in content_platforms %}<option value="{{platform}}" {{'selected' if content_filters.platform==platform}}>{{platform}}</option>{% endfor %}</select>
+  <select name="status"><option value="">All statuses</option>{% for status in content_statuses %}<option value="{{status}}" {{'selected' if content_filters.status==status}}>{{status}}</option>{% endfor %}</select>
+  <select name="approval"><option value="">Any approval</option><option value="waiting" {{'selected' if content_filters.approval=='waiting'}}>Waiting for client</option><option value="decided" {{'selected' if content_filters.approval=='decided'}}>Decided</option></select>
+  <input type="month" name="month" value="{{content_calendar.value}}">
+  <button class="light-button">Filter</button>
+  <a href="{{url_for('content_view',mode=content_mode)}}" class="clear-filter">Clear</a>
+</form>
+
+{% if content_mode=='calendar' %}
+<article class="surface content-calendar" id="social-calendar">
+  <div class="section-head">
+    <div><p class="eyebrow">PUBLISHING PLAN</p><h2>{{content_calendar.label}}</h2></div>
+    <div class="calendar-nav"><a href="{{url_for('content_view',mode='calendar',month=content_calendar.prev)}}">Previous</a><a href="{{url_for('content_view',mode='calendar',month=content_calendar.next)}}">Next</a></div>
+  </div>
+  <div class="content-calendar-weekdays">{% for day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<span>{{day}}</span>{% endfor %}</div>
+  <div class="content-calendar-grid">
+    {% for week in content_calendar.weeks %}{% for cell in week %}
+    <div class="content-day {{'outside' if not cell.day}}">
+      <span>{{cell.day or ''}}</span>
+      {% for item in cell['items'] %}
+      <article><strong>{{item.title}}</strong><small>{{item.platform or 'Channel'}} · {{item.status}}</small></article>
+      {% endfor %}
+    </div>
+    {% endfor %}{% endfor %}
+  </div>
+</article>
+{% elif content_mode=='studio' %}
+<div class="section-head standalone" id="creator-studio"><div><p class="eyebrow">PRODUCTION BOARD</p><h2>Ideas, scripts and creative work</h2></div></div>
+<div class="content-board">
+  {% for stage in content_statuses %}
+  <section>
+    <header><span>{{stage}}</span><b>{{content_items|selectattr('status','equalto',stage)|list|length}}</b></header>
+    {% for item in content_items if item.status==stage %}
+    <article class="content-card">
+      <div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div>
+      <h3>{{item.title}}</h3>
+      <p>{{item.client_name or ''}}{% if item.service_name %} · {{item.service_name}}{% endif %}</p>
+      <small>{{item.owner_name or 'Unassigned'}} · {{item.publish_date or 'No date'}}</small>
+      {% if item.brief %}<p class="content-note">Brief: {{item.brief[:90]}}</p>{% endif %}
+      {% if item.script %}<p class="content-note">Script: {{item.script[:90]}}</p>{% endif %}
+      {% if item.creative_reference %}<p class="content-note">Ref: {{item.creative_reference[:90]}}</p>{% endif %}
+      <form method="post" action="{{url_for('update_content_status',item_id=item.id)}}">
+        <select name="status" onchange="this.form.submit()">{% for s in content_statuses %}<option {{'selected' if s==item.status}}>{{s}}</option>{% endfor %}</select>
+      </form>
+    </article>
+    {% endfor %}
+  </section>
+  {% endfor %}
+</div>
+{% elif content_mode=='approvals' %}
+<div class="approval-grid">
+  {% for item in content_items if item.approval_status=='Waiting for client' %}
+  <article class="surface approval-card">
+    <span class="approval-pill">Waiting for client</span>
+    <h3>{{item.title}}</h3>
+    <p>{{item.client_name or 'No client'}} · {{item.platform or 'Channel'}} · {{item.status}}</p>
+    <small>Requested {{item.approval_requested_at[:16] if item.approval_requested_at else 'not dated'}}</small>
+  </article>
+  {% else %}
+  <div class="empty-state surface">No content approvals are waiting.</div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="results-grid">
+  {% for item in content_items if item.status in ['Published','Approved'] or item.performance_summary or item.result_notes %}
+  <article class="surface result-card">
+    <div><span>{{item.platform or 'Content'}}</span><small>{{item.publish_date or 'Latest'}}</small></div>
+    <h3>{{item.title}}</h3>
+    {% if item.performance_summary %}<p>{{item.performance_summary}}</p>{% endif %}
+    {% if item.result_notes %}<footer><small>{{item.result_notes}}</small></footer>{% endif %}
+  </article>
+  {% else %}
+  <div class="empty-state surface">No content performance notes yet.</div>
+  {% endfor %}
+</div>
+{% endif %}

@@ -1,0 +1,192 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{now.strftime('%A, %d %B')}}</p>
+    <h1>{{'Your client workspace' if current_user.role=='client' else 'Good morning, '+current_user.name.split()[0]}}</h1>
+    <p>{{'Review progress and decisions without chasing updates.' if current_user.role=='client' else 'The work, relationships and decisions that need attention.'}}</p>
+  </div>
+  <button class="primary" data-ai-open><i data-lucide="sparkles"></i> Ask Aapti</button>
+</div>
+
+<div class="kpi-grid">
+  <a href="{{url_for('work_view',view='calendar') if current_user.role!='client' else url_for('portal_view')}}">
+    <small>Due today</small>
+    <strong>{{stats.due_today}}</strong>
+    <span>Tasks and content deadlines</span>
+  </a>
+  <a href="{{url_for('content_view')}}">
+    <small>Client approvals</small>
+    <strong>{{stats.approvals}}</strong>
+    <span>Waiting for a decision</span>
+  </a>
+  {% if current_user.role!='client' %}
+  <a href="{{url_for('clients_view')}}">
+    <small>Clients at risk</small>
+    <strong>{{stats.at_risk}}</strong>
+    <span>Needs attention this week</span>
+  </a>
+  {% endif %}
+  <a href="{{url_for('team_view') if current_user.role!='client' else url_for('portal_view')}}">
+    <small>{{'Team capacity' if current_user.role!='client' else 'Open work'}}</small>
+    <strong>{{stats.capacity if current_user.role!='client' else stats.open_tasks}}{{'%' if current_user.role!='client' else ''}}</strong>
+    <span>{{stats.capacity_note if current_user.role!='client' else stats.overdue|string + ' overdue'}}</span>
+  </a>
+</div>
+
+<div class="dashboard-command">
+  <article class="surface dashboard-focus">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">FOCUS</p>
+        <h2>What needs attention</h2>
+      </div>
+      <a href="{{url_for('content_view')}}">Approvals →</a>
+    </div>
+    <div class="focus-list">
+      <a href="{{url_for('content_view')}}">
+        <span class="focus-icon coral"><i data-lucide="stamp"></i></span>
+        <div>
+          <strong>{{stats.approvals}} approval{{'' if stats.approvals==1 else 's'}} waiting</strong>
+          <small>{{focus.approval.title if focus.approval else 'No client decisions are blocking work'}}</small>
+        </div>
+        <b>{{'%02d'|format(stats.approvals)}}</b>
+      </a>
+      <a href="{{url_for('work_view')}}">
+        <span class="focus-icon dark"><i data-lucide="calendar-x"></i></span>
+        <div>
+          <strong>{{focus.overdue.title if focus.overdue else 'No overdue work'}}</strong>
+          <small>{{focus.overdue.client_name if focus.overdue else 'Everything visible is on schedule'}}</small>
+        </div>
+        <b>{{'!' if focus.overdue else '✓'}}</b>
+      </a>
+      {% if current_user.role!='client' %}
+      <a href="{{url_for('team_view')}}">
+        <span class="focus-icon gold"><i data-lucide="users"></i></span>
+        <div>
+          <strong>{{focus.capacity.name if focus.capacity else 'No active team load'}}</strong>
+          <small>{{focus.capacity.percent if focus.capacity else 0}}% planned load · {{focus.capacity.open_tasks if focus.capacity else 0}} open assignments</small>
+        </div>
+        <b>{{focus.capacity.percent if focus.capacity else 0}}</b>
+      </a>
+      <a href="{{url_for('clients_view')}}">
+        <span class="focus-icon coral"><i data-lucide="heart-pulse"></i></span>
+        <div>
+          <strong>{{focus.risk.name if focus.risk else 'No clients at risk'}}</strong>
+          <small>{{focus.risk.health if focus.risk else 'Client health looks steady'}}</small>
+        </div>
+        <b>{{stats.at_risk}}</b>
+      </a>
+      {% endif %}
+    </div>
+  </article>
+
+  <article class="surface delivery-card">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">DELIVERY PULSE</p>
+        <h2>Work moving by due week</h2>
+      </div>
+      <span>{{stats.avg_project_progress}}% avg progress</span>
+    </div>
+    <div class="mini-chart">
+      {% for week in delivery_weeks %}
+      <div title="{{week.completed}} completed, {{week.active}} in motion">
+        <span class="bar-done" style="height:{{week.completed_height}}%"></span>
+        <span class="bar-live" style="height:{{week.active_height}}%;bottom:{{week.completed_height}}%"></span>
+        <small>{{week.label}}</small>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="legend"><span><i class="leg approved"></i>Completed</span><span><i class="leg active"></i>In motion</span></div>
+  </article>
+</div>
+
+<div class="dashboard-command lower">
+  <article class="surface">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">PROJECT PROGRESS</p>
+        <h2>Active workstreams</h2>
+      </div>
+      {% if current_user.role!='client' %}<a href="{{url_for('work_view')}}">Open work →</a>{% endif %}
+    </div>
+    <div class="project-progress-list">
+      {% for project in project_cards %}
+      <a href="{{url_for('work_view')}}">
+        <span>
+          <strong>{{project.name}}</strong>
+          <small>{{project.client_name}} · {{project.task_count}} task{{'' if project.task_count==1 else 's'}}</small>
+        </span>
+        <div class="progress"><span style="width:{{project.avg_progress}}%"></span></div>
+        <b>{{project.avg_progress}}%</b>
+      </a>
+      {% else %}
+      <p class="muted">No active projects yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="surface">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">LIVE WORK</p>
+        <h2>Recent activity</h2>
+      </div>
+      <button class="light-button" data-dashboard-filter><i data-lucide="list-filter"></i> Filter</button>
+    </div>
+    <div class="dashboard-filter"><input placeholder="Filter recent work…" aria-label="Filter recent work"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Work</th><th>Client</th><th>Status</th><th>Progress</th><th>Due</th></tr></thead>
+        <tbody>
+          {% for item in recent %}
+          <tr onclick="location.href='{{item.url}}'">
+            <td><span class="row-icon">{{item.title[0]}}</span><div><strong>{{item.title}}</strong><small>{{item.kind}}</small></div></td>
+            <td>{{item.client}}</td>
+            <td><span class="status {{item.status|lower|replace(' ','-')}}">{{item.status}}</span></td>
+            <td><div class="progress"><span style="width:{{item.progress}}%"></span></div><small>{{item.progress}}%</small></td>
+            <td>{{item.due or '—'}}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty-state">No recent work yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </article>
+</div>
+
+<div class="section-head standalone">
+  <div>
+    <p class="eyebrow">RESULTS</p>
+    <h2>Service-wise outcomes</h2>
+  </div>
+  {% if current_user.role!='client' %}
+  <details class="action-menu">
+    <summary class="primary"><i data-lucide="plus"></i>Record result</summary>
+    <form method="post" action="{{url_for('create_result')}}" class="quick-form wide-form">
+      <h3>Manual result entry</h3>
+      <select name="client_id" required><option value="">Client</option>{% for c in result_clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select>
+      <select name="service_id"><option value="">Service</option>{% for s in result_services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select>
+      <select name="result_type" required>{% for type in result_types %}<option>{{type}}</option>{% endfor %}</select>
+      <input name="title" placeholder="Result title" required>
+      <div class="form-pair"><input name="metric_label" placeholder="Metric label"><input name="metric_value" placeholder="Metric value"></div>
+      <input name="comparison" placeholder="Comparison, e.g. +18% vs last month">
+      <div class="form-pair"><input type="date" name="period_start"><input type="date" name="period_end"></div>
+      <select name="project_id"><option value="">Related project</option>{% for p in result_projects %}<option value="{{p.id}}">{{p.client_name}} · {{p.name}}</option>{% endfor %}</select>
+      <select name="task_id"><option value="">Related completed task</option>{% for t in result_tasks %}<option value="{{t.id}}">{{t.client_name or 'Client'}} · {{t.title}}</option>{% endfor %}</select>
+      <select name="content_id"><option value="">Related content</option>{% for item in result_content %}<option value="{{item.id}}">{{item.client_name or 'Client'}} · {{item.title}}</option>{% endfor %}</select>
+      <textarea name="summary" placeholder="What improved, shipped, or changed?"></textarea>
+      <label class="check-row"><input type="checkbox" name="client_visible" checked>Visible to client</label>
+      <button class="primary">Save result</button>
+    </form>
+  </details>
+  {% endif %}
+</div>
+<div class="result-service-strip">
+  {% for item in result_service_totals %}
+  <article class="surface"><small>{{item.service_name}}</small><strong>{{item.total}}</strong><span>latest {{item.latest_period or 'not dated'}}</span></article>
+  {% else %}
+  <article class="surface"><small>No result history yet</small><strong>0</strong><span>Record manual outcomes as work ships</span></article>
+  {% endfor %}
+</div>
+{% include 'platform_results.html' %}

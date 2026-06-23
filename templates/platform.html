@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{ modules.get(view, ('Overview',))[0] }} · Aapti</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{url_for('static',filename='app.css')}}">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+</head>
+<body class="platform-body">
+<div class="platform-shell">
+  <aside class="platform-sidebar">
+    <a class="brand" href="/"><span class="brand-mark">A</span><strong>Aapti</strong><small>OS</small></a>
+    <div class="workspace-chip"><span>A</span><div><strong>Aapti</strong><small>Agency workspace</small></div></div>
+    <nav>
+      <a href="/" class="{{'active' if view=='dashboard'}}"><i data-lucide="layout-dashboard"></i>Overview</a>
+      {% if current_user.role!='client' %}
+      <a href="{{url_for('crm_view')}}" class="{{'active' if view=='crm'}}"><i data-lucide="contact-round"></i>CRM</a>
+      <a href="{{url_for('clients_view')}}" class="{{'active' if view=='clients'}}"><i data-lucide="building-2"></i>Clients</a>
+      <a href="{{url_for('work_view')}}" class="{{'active' if view in ['work','task_detail']}}"><i data-lucide="square-kanban"></i>Work</a>
+      <a href="{{url_for('content_view',mode='calendar')}}#social-calendar" class="{{'active' if view=='content' and content_mode|default('calendar')=='calendar'}}"><i data-lucide="calendar-days"></i>Content Calendar</a>
+      <a href="{{url_for('content_view',mode='studio')}}#creator-studio" class="{{'active' if view=='content' and content_mode|default('')=='studio'}}"><i data-lucide="clapperboard"></i>Creator Studio</a>
+      <a href="{{url_for('reports_view')}}" class="{{'active' if view=='reports'}}"><i data-lucide="bar-chart-3"></i>Reports</a>
+      <a href="{{url_for('team_view')}}" class="{{'active' if view=='team'}}"><i data-lucide="users"></i>Team</a>
+      {% if current_user.role in ['admin','super_admin'] %}
+      <a href="{{url_for('admin_users')}}" class="{{'active' if view=='admin_users'}}"><i data-lucide="user-cog"></i>Admin Users</a>
+      {% endif %}
+      {% else %}
+      <a href="{{url_for('portal_view')}}" class="{{'active' if view=='portal'}}"><i data-lucide="panel-top"></i>My workspace</a>
+      <a href="{{url_for('content_view')}}" class="{{'active' if view=='content'}}"><i data-lucide="stamp"></i>Content approvals</a>
+      {% endif %}
+    </nav>
+    <div class="platform-sidebar-bottom">
+      {% if current_user.role in ['manager','admin','super_admin'] %}<a href="{{url_for('settings_view')}}" class="{{'active' if view=='settings'}}"><i data-lucide="settings-2"></i>Services & settings</a>{% endif %}
+      <button class="ai-mini" data-ai-open><i data-lucide="sparkles"></i><span><strong>Ask Aapti</strong><small>Search workspace</small></span></button>
+      <a href="{{url_for('logout')}}"><i data-lucide="log-out"></i>Sign out</a>
+    </div>
+  </aside>
+  <main class="platform-main">
+    <header class="platform-topbar">
+      <button class="menu-toggle" aria-label="Open navigation"><i data-lucide="menu"></i></button>
+      <form class="global-search" action="/search"><i data-lucide="search"></i><input name="q" placeholder="Search clients, projects and work…"><kbd>Ctrl K</kbd></form>
+      <button class="icon-btn" data-ai-open aria-label="Ask Aapti"><i data-lucide="sparkles"></i></button>
+      <div class="profile"><div class="avatar">{{current_user.name[0]}}</div><div><strong>{{current_user.name}}</strong><small>{{current_user.role|replace('_',' ')|title}}</small></div></div>
+    </header>
+    <section class="platform-content">
+      {% with messages=get_flashed_messages(with_categories=true) %}{% for cat,msg in messages %}<div class="flash {{cat}}">{{msg}}</div>{% endfor %}{% endwith %}
+
+      {% if view=='dashboard' %}{% include 'platform_dashboard.html' %}{% elif view=='_legacy_dashboard' %}
+      <div class="page-head"><div><p class="eyebrow">{{now.strftime('%A, %d %B')}}</p><h1>{{'Your client workspace' if current_user.role=='client' else 'Good morning, '+current_user.name.split()[0]}}</h1><p>{{'Review progress and decisions without chasing updates.' if current_user.role=='client' else 'The work, relationships and decisions that need attention.'}}</p></div><button class="primary" data-ai-open><i data-lucide="sparkles"></i> Ask Aapti</button></div>
+      <div class="kpi-grid">
+        <a href="{{url_for('clients_view')}}"><small>Clients</small><strong>{{stats.clients}}</strong><span>Active relationships</span></a>
+        {% if current_user.role!='client' %}<a href="{{url_for('crm_view')}}"><small>Open leads</small><strong>{{stats.leads}}</strong><span>Across the pipeline</span></a>{% endif %}
+        <a href="{{url_for('content_view')}}"><small>Approvals</small><strong>{{stats.approvals}}</strong><span>Waiting on clients</span></a>
+        <a href="{{url_for('work_view') if current_user.role!='client' else url_for('portal_view')}}"><small>Open work</small><strong>{{stats.open_tasks}}</strong><span>{{stats.overdue}} overdue</span></a>
+      </div>
+      <article class="surface dashboard-work">
+        <div class="section-head"><div><p class="eyebrow">PRIORITY VIEW</p><h2>{{'Shared work' if current_user.role=='client' else 'What is moving now'}}</h2></div>{% if current_user.role!='client' %}<a href="{{url_for('work_view')}}">Open workspace →</a>{% endif %}</div>
+        {% include 'platform_task_table.html' %}
+      </article>
+
+      {% elif view=='lead_convert' %}{% include 'platform_lead_convert.html' %}
+
+      {% elif view=='crm' %}{% include 'platform_crm.html' %}{% elif view=='_legacy_crm' %}
+      <div class="page-head"><div><p class="eyebrow">GROWTH</p><h1>CRM</h1><p>One pipeline from first conversation to active client.</p></div><details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>Add lead</summary><form method="post" action="{{url_for('create_lead')}}" class="quick-form"><h3>New lead</h3><input name="company" placeholder="Company" required><input name="contact_name" placeholder="Contact name"><input type="email" name="email" placeholder="Email"><input name="phone" placeholder="Phone"><input name="source" placeholder="Source"><select name="stage"><option>New</option><option>Qualified</option><option>Discovery</option><option>Proposal</option></select><select name="owner_id"><option value="">Owner</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><input type="date" name="next_follow_up"><input name="service_interest" placeholder="Service interest"><textarea name="notes" placeholder="Context"></textarea><button class="primary">Add to pipeline</button></form></details></div>
+      <div class="pipeline">
+        {% for stage in ['New','Qualified','Discovery','Proposal','Won'] %}
+        <section><header><span>{{stage}}</span><b>{{leads|selectattr('stage','equalto',stage)|list|length}}</b></header><div>{% for lead in leads if lead.stage==stage %}<article class="pipeline-card"><small>{{lead.source or 'Direct'}}</small><h3>{{lead.company}}</h3><p>{{lead.contact_name or 'No contact'}} · {{lead.service_interest or 'Service not set'}}</p><div><span>{{lead.next_follow_up or 'No follow-up'}}</span><strong>{{lead.owner_name or 'Unassigned'}}</strong></div><form method="post" action="{{url_for('update_lead_stage',lead_id=lead.id)}}"><select name="stage" onchange="this.form.submit()">{% for s in ['New','Qualified','Discovery','Proposal','Won','Lost'] %}<option {{'selected' if s==lead.stage}}>{{s}}</option>{% endfor %}</select></form></article>{% endfor %}</div></section>
+        {% endfor %}
+      </div>
+
+      {% elif view=='clients' %}
+      <div class="page-head"><div><p class="eyebrow">RELATIONSHIPS</p><h1>Clients</h1><p>Every engagement, service and owner connected to the client.</p></div>{% if current_user.role in ['manager','admin','super_admin'] %}<details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>Add client</summary><form method="post" action="{{url_for('create_client')}}" class="quick-form"><h3>New client</h3><input name="name" placeholder="Company name" required><input name="industry" placeholder="Industry"><input name="website" placeholder="Website"><input name="primary_contact" placeholder="Primary contact"><input type="email" name="contact_email" placeholder="Contact email"><label>Primary account owner<select name="account_manager_id"><option value="">Not assigned yet</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><small>Coordinates this client relationship; they do not have to complete every task.</small></label><fieldset class="service-picker"><legend>Services this client is taking</legend>{% for service in services %}<label><input type="checkbox" name="service_id" value="{{service.id}}"><span><strong>{{service.name}}</strong><small>{{service.description}}</small></span></label>{% endfor %}</fieldset><select name="health"><option>Healthy</option><option>Needs attention</option><option>At risk</option></select><textarea name="notes" placeholder="Important context"></textarea><button class="primary">Create client</button></form></details>{% endif %}</div>
+      <div class="entity-grid">{% for client in clients %}<article class="surface entity-card"><div class="entity-icon">{{client.name[0]}}</div><span class="health {{client.health|lower|replace(' ','-')}}">{{client.health}}</span><h2>{{client.name}}</h2><p>{{client.industry or 'Industry not set'}}</p><div class="service-tags">{% if client.service_names %}{% for service_name in client.service_names.split('|||') %}<span>{{service_name}}</span>{% endfor %}{% else %}<span class="empty-tag">No services configured</span>{% endif %}</div><div class="entity-meta"><span><small>Account owner</small><strong>{{client.account_manager_name or 'Not assigned'}}</strong></span><span><small>Workstreams</small><strong>{{client_workstream_map.get(client.id,[])|length}}</strong></span></div>{% if current_user.role in ['manager','admin','super_admin'] %}<details class="client-service-editor"><summary>Manage services</summary><form method="post" action="{{url_for('update_client_services',client_id=client.id)}}">{% for service in services %}<label><input type="checkbox" name="service_id" value="{{service.id}}" {{'checked' if service.id in client_service_map.get(client.id,[])}}>{{service.name}}</label>{% endfor %}<button class="primary">Save services</button></form></details>{% endif %}</article>{% else %}<div class="empty-state">No clients yet.</div>{% endfor %}</div>
+      <div class="section-head standalone"><div><p class="eyebrow">ROADMAPS</p><h2>Client service workstreams</h2></div><a href="{{url_for('work_view')}}">Open work →</a></div>{% include 'platform_workstreams.html' %}
+
+      {% elif view=='work' %}
+      <a class="calendar-callout" href="{{url_for('work_view',view='calendar')}}"><i data-lucide="calendar-days"></i><span><strong>Open work calendar</strong><small>See every assignment by due date</small></span><i data-lucide="arrow-right"></i></a>
+      <div class="page-head">
+        <div><p class="eyebrow">DELIVERY</p><h1>Work</h1><p>Projects inherit the right workflow for every selected service.</p></div>
+        <div class="head-actions">
+          <details class="action-menu">
+            <summary class="light-button">New custom task</summary>
+            <form method="post" action="{{url_for('create_task')}}" class="quick-form wide-form" data-task-form>
+              <h3>Assign custom task</h3>
+              <input name="title" placeholder="Task title" required>
+              <select name="project_id" data-task-project><option value="">Project</option>{% for p in projects %}<option value="{{p.id}}" data-services="{{project_service_map.get(p.id,[])|join(',')}}">{{p.name}}</option>{% endfor %}</select>
+              <select name="service_id" data-task-service><option value="">Service / workstream</option>{% for s in services %}<option value="{{s.id}}">{{s.name}}</option>{% endfor %}</select>
+              <select name="stage_id" data-task-stage><option value="">Workflow stage</option>{% for stage in task_stages %}<option value="{{stage.id}}" data-service="{{stage.service_id}}">{{stage.service_name}} - {{stage.name}}</option>{% endfor %}</select>
+              <select name="assignee_id"><option value="">Assignee</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select>
+              <div class="form-pair"><select name="priority"><option>Medium</option><option>High</option><option>Low</option></select><select name="status"><option>Not started</option><option>Working</option><option>Internal Review</option><option>Client Review</option><option>Approved</option><option>Changes Requested</option><option>Completed</option></select></div>
+              <div class="form-pair"><input type="number" name="estimated_hours" min="0.25" max="80" step="0.25" placeholder="Estimated hours"><input type="date" name="due_date"></div>
+              <textarea name="description" placeholder="Definition of done"></textarea>
+              <label class="check-row"><input type="checkbox" name="client_visible">Client visible / approval-related</label>
+              <button class="primary">Assign task</button>
+            </form>
+          </details>
+          <details class="action-menu">
+            <summary class="primary"><i data-lucide="plus"></i>New project</summary>
+            <form method="post" action="{{url_for('create_project')}}" class="quick-form" data-project-form><h3>New engagement</h3><input name="name" placeholder="Project name" required><select name="client_id" required data-project-client><option value="">Client</option>{% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select><select name="manager_id"><option value="">Project manager</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><label>Service tracks<small>After choosing a client, their configured services are prioritised.</small><select name="service_id" multiple size="6" required data-project-services>{% for s in services %}<option value="{{s.id}}" data-clients="{{service_client_map.get(s.id,[])|join(',')}}">{{s.name}}</option>{% endfor %}</select></label><p class="form-hint" data-project-service-hint>Select a client to see their services.</p><label class="check-row"><input type="checkbox" name="create_starter_tasks">Create suggested starter tasks for selected services</label><div class="form-pair"><input type="date" name="start_date"><input type="date" name="due_date"></div><textarea name="description" placeholder="Engagement outcome"></textarea><button class="primary">Create project</button></form>
+          </details>
+        </div>
+      </div>
+      <div class="section-head standalone"><div><p class="eyebrow">SERVICE ROADMAPS</p><h2>Active workstreams</h2></div></div>{% include 'platform_workstreams.html' %}
+      <article class="surface" data-task-workspace data-initial-task-view="{{initial_task_view}}">
+        <div class="section-head">
+          <div><p class="eyebrow">ALL ASSIGNMENTS</p><h2>Tasks and deliverables</h2></div>
+          <div class="view-tabs" role="tablist"><button class="active" data-task-view-mode="list" aria-selected="true">List</button><button data-task-view-mode="board" aria-selected="false">Board</button><button data-task-view-mode="calendar" aria-selected="false">Calendar</button></div>
+        </div>
+        <form method="get" action="{{url_for('work_view')}}" class="work-filter">
+          <input type="hidden" name="view" value="{{initial_task_view}}">
+          <select name="client_id"><option value="">All clients</option>{% for c in clients %}<option value="{{c.id}}" {{'selected' if task_filters.client_id|string==c.id|string}}>{{c.name}}</option>{% endfor %}</select>
+          <select name="project_id"><option value="">All projects</option>{% for p in projects %}<option value="{{p.id}}" {{'selected' if task_filters.project_id|string==p.id|string}}>{{p.name}}</option>{% endfor %}</select>
+          <select name="service_id"><option value="">All services</option>{% for s in services %}<option value="{{s.id}}" {{'selected' if task_filters.service_id|string==s.id|string}}>{{s.name}}</option>{% endfor %}</select>
+          <select name="assignee_id"><option value="">All assignees</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}" {{'selected' if task_filters.assignee_id|string==p.id|string}}>{{p.name}}</option>{% endfor %}</select>
+          <select name="status"><option value="">All statuses</option>{% for status in task_statuses %}<option value="{{status}}" {{'selected' if task_filters.status==status}}>{{status}}</option>{% endfor %}</select>
+          <select name="approval"><option value="">Any approval</option><option value="required" {{'selected' if task_filters.approval=='required'}}>Waiting/approval-related</option></select>
+          <select name="due"><option value="">Any due date</option><option value="today" {{'selected' if task_filters.due=='today'}}>Due today</option><option value="week" {{'selected' if task_filters.due=='week'}}>Due next 7 days</option><option value="overdue" {{'selected' if task_filters.due=='overdue'}}>Overdue</option><option value="none" {{'selected' if task_filters.due=='none'}}>No due date</option></select>
+          <button class="light-button">Filter</button><a href="{{url_for('work_view')}}" class="clear-filter">Clear</a>
+        </form>
+        {% include 'platform_task_table.html' %}
+        <div class="task-board-view" data-task-view="board" hidden></div>
+        <div class="task-calendar-view" data-task-view="calendar" hidden></div>
+      </article>
+
+      {% elif view=='task_detail' %}
+      <a class="back-link" href="{{url_for('work_view',view='calendar')}}">← Back to work calendar</a>
+      <div class="page-head">
+        <div><p class="eyebrow">TASK</p><h1>{{task.title}}</h1><p>{{task.client_name or 'No client'}} · {{task.project_name or 'Independent work'}}</p></div>
+        <a class="light-button" href="{{url_for('work_view')}}">All work</a>
+      </div>
+      <div class="task-detail-grid">
+        <article class="surface task-detail-main">
+          <div class="section-head"><div><p class="eyebrow">WORK DETAILS</p><h2>{{task.service_name or 'General work'}}</h2></div><span class="priority {{(task.priority or 'Medium')|lower}}">{{task.priority or 'Medium'}}</span></div>
+          <p>{{task.description or 'No description added yet.'}}</p>
+          <div class="task-detail-meta">
+            <span><small>Workflow stage</small><strong>{{task.stage_name or 'No stage set'}}</strong></span>
+            <span><small>Owner</small><strong>{{task.assignee_name or 'Unassigned'}}</strong></span>
+            <span><small>Due date</small><strong>{{task.due_date or 'No date'}}</strong></span>
+            <span><small>Estimated hours</small><strong>{{'%g'|format(task.estimated_hours or 1)}}h</strong></span>
+            <span><small>Progress</small><strong>{{task.progress or 0}}%</strong></span>
+            <span><small>Approval</small><strong>{{task.approval_status or 'Not required'}}</strong></span>
+          </div>
+        </article>
+        <aside class="surface task-detail-side">
+          <h2>Status</h2>
+          <form method="post" action="{{url_for('update_task_status',task_id=task.id)}}">
+            <select name="status" class="status-select">
+              {% for s in task_statuses %}<option {{'selected' if s==task.status}}>{{s}}</option>{% endfor %}
+            </select>
+            <button class="primary">Update status</button>
+          </form>
+          <div class="workstream-next">
+            <small>Service / stage</small>
+            <strong>{{task.service_name or 'General'}} · {{task.stage_name or 'No stage'}}</strong>
+            <span>{{task.client_visible and 'Client visible' or 'Internal work'}}</span>
+          </div>
+        </aside>
+      </div>
+
+      {% elif view=='content' %}{% include 'platform_content_studio.html' %}{% elif view=='content_legacy' %}
+      <div class="page-head"><div><p class="eyebrow">PRODUCTION</p><h1>Content Studio</h1><p>Ideas, scripts, creatives and approvals stay on one content item.</p></div>{% if current_user.role!='client' %}<details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>Add content</summary><form method="post" action="{{url_for('create_content')}}" class="quick-form wide-form"><h3>New content item</h3><input name="title" placeholder="Content title" required><select name="client_id"><option value="">Client</option>{% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select><select name="project_id"><option value="">Campaign/project</option>{% for p in projects %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><div class="form-pair"><select name="platform"><option>Instagram</option><option>LinkedIn</option><option>YouTube</option><option>Facebook</option><option>Website</option><option>Email</option></select><select name="format"><option>Reel</option><option>Carousel</option><option>Post</option><option>Story</option><option>Blog</option><option>Ad</option><option>UGC Video</option></select></div><input name="pillar" placeholder="Content pillar"><select name="owner_id"><option value="">Owner</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><textarea name="idea" placeholder="Idea"></textarea><textarea name="brief" placeholder="Brief"></textarea><textarea name="script" placeholder="Script"></textarea><textarea name="caption" placeholder="Caption"></textarea><div class="form-pair"><select name="status">{% for s in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Approved','Scheduled','Published'] %}<option>{{s}}</option>{% endfor %}</select><input type="date" name="publish_date"></div><label class="check-row"><input type="checkbox" name="client_visible" checked>Visible to client</label><button class="primary">Add to studio</button></form></details>{% endif %}</div>
+      <div class="content-board">{% for stage in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Changes Requested','Approved','Scheduled','Published'] %}<section><header><span>{{stage}}</span><b>{{content_items|selectattr('status','equalto',stage)|list|length}}</b></header>{% for item in content_items if item.status==stage %}<article class="content-card"><div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div><h3>{{item.title}}</h3><p>{{item.client_name or ''}}{% if item.approval_status!='Not required' %} · {{item.approval_status}}{% endif %}</p><small>{{item.owner_name or 'Unassigned'}} · {{item.publish_date or 'No date'}}</small><form method="post" action="{{url_for('update_content_status',item_id=item.id)}}"><select name="status" onchange="this.form.submit()">{% if current_user.role=='client' %}<option selected>{{item.status}}</option><option>Approved</option><option>Changes Requested</option>{% else %}{% for s in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Changes Requested','Approved','Scheduled','Published'] %}<option {{'selected' if s==item.status}}>{{s}}</option>{% endfor %}{% endif %}</select></form></article>{% endfor %}</section>{% endfor %}</div>
+
+      {% elif view=='reports' %}{% include 'platform_reports.html' %}
+
+      {% elif view=='team' %}
+      <div class="page-head"><div><p class="eyebrow">CAPACITY</p><h1>Team</h1><p>Plan assignments using real task hours: {{work_day_hours}}h/day and {{team_summary.capacity_hours}}h/week per person.</p></div></div>
+      <div class="capacity-summary">
+        <article class="surface"><small>Assigned this week</small><strong>{{'%g'|format(team_summary.weekly_hours)}}h</strong><span>Across {{team_summary.people}} people</span></article>
+        <article class="surface"><small>Open workload</small><strong>{{'%g'|format(team_summary.open_hours)}}h</strong><span>Remaining task hours</span></article>
+        <article class="surface"><small>Overloaded</small><strong>{{team_summary.overloaded}}</strong><span>At or above weekly capacity</span></article>
+        <article class="surface"><small>Underused</small><strong>{{team_summary.underused}}</strong><span>Below 50% weekly load</span></article>
+      </div>
+      <div class="team-capacity-grid">
+        {% for load in loads %}
+        <article class="surface team-card capacity-card {{load.state}}">
+          <div class="person-line">
+            <div class="avatar">{{load.person.name[0]}}</div>
+            <div><h2>{{load.person.name}}</h2><p>{{load.person.role|replace('_',' ')|title}} · {{load.state|title}}</p></div>
+            <span class="capacity-state {{load.state}}">{{load.state|title}}</span>
+          </div>
+          <div class="capacity-heading"><span>This week</span><strong>{{'%g'|format(load.weekly_hours)}}h / {{load.capacity_hours}}h</strong></div>
+          <div class="capacity-track"><span class="{{load.level}}" style="width:{{[load.percent,100]|min}}%"></span></div>
+          <div class="capacity-meta">
+            <span><small>Available</small><strong>{{'%g'|format(load.available_hours)}}h</strong></span>
+            <span><small>Open work</small><strong>{{load.open_tasks}} tasks</strong></span>
+            <span><small>Total open</small><strong>{{'%g'|format(load.open_hours)}}h</strong></span>
+          </div>
+          <div class="daily-capacity">
+            {% for day in load.daily_hours %}
+            <div><span>{{day.label}}</span><b style="height:{{[day.percent,100]|min}}%"></b><small>{{'%g'|format(day.hours)}}h</small></div>
+            {% endfor %}
+          </div>
+          <div class="capacity-tasks">
+            <h3>Next due work</h3>
+            {% for task in load.upcoming %}
+            <a href="{{url_for('work_view',assignee_id=load.person.id)}}" title="{{task.title}}">
+              <span><strong>{{task.title}}</strong><small>{{task.client or task.service or 'Internal'}} · {{task.due_date}}</small></span>
+              <b>{{'%g'|format(task.hours)}}h</b>
+            </a>
+            {% else %}
+            <p class="muted">No dated work in the next two weeks.</p>
+            {% endfor %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+
+      {% elif view=='admin_users' %}
+      <div class="page-head">
+        <div><p class="eyebrow">ADMIN</p><h1>Users & access</h1><p>Create real accounts, assign roles, and prepare password setup or reset links.</p></div>
+        <details class="action-menu">
+          <summary class="primary"><i data-lucide="user-plus"></i>New user</summary>
+          <form method="post" action="{{url_for('create_user')}}" class="quick-form">
+            <h3>Create user</h3>
+            <input name="name" placeholder="Full name" required>
+            <input name="email" type="email" placeholder="Work email" required>
+            <select name="role">
+              <option value="employee">Employee</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Admin</option>
+              <option value="client">Client</option>
+            </select>
+            <select name="manager_id">
+              <option value="">Reports to / manager</option>
+              {% for manager in managers %}<option value="{{manager.id}}">{{manager.name}}</option>{% endfor %}
+            </select>
+            <select name="client_id">
+              <option value="">Linked client account</option>
+              {% for client in clients %}<option value="{{client.id}}">{{client.name}}</option>{% endfor %}
+            </select>
+            <input name="password" type="password" placeholder="Initial password, optional">
+            <button class="primary">Create user</button>
+          </form>
+        </details>
+      </div>
+      {% if setup_link %}
+      <article class="surface reset-link-panel">
+        <div><p class="eyebrow">READY TO SHARE</p><h2>Password setup link</h2><p>Send this to the user. It lets them set their own password.</p></div>
+        <input readonly value="{{setup_link}}" onclick="this.select()">
+        {% if temp_password %}<small>Temporary password, if needed: <strong>{{temp_password}}</strong></small>{% endif %}
+      </article>
+      {% endif %}
+      <article class="surface admin-users-table">
+        <div class="section-head"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Workspace users</h2></div><span>{{users|length}} account{{'' if users|length==1 else 's'}}</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>User</th><th>Role</th><th>Scope</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+              {% for user in users %}
+              <tr>
+                <td><span class="row-icon">{{user.name[0]}}</span><div><strong>{{user.name}}</strong><small>{{user.email}}</small></div></td>
+                <td><span class="role-pill {{user.role}}">{{user.role|replace('_',' ')|title}}</span></td>
+                <td>{{user.linked_client_name or ('Reports to '+user.manager_name if user.manager_name else 'Full workspace')}}</td>
+                <td><span class="status {{'approved' if user.active else 'overdue'}}">{{'Active' if user.active else 'Inactive'}}</span>{% if user.must_reset_password %}<small> Password reset required</small>{% endif %}</td>
+                <td>
+                  <form method="post" action="{{url_for('admin_reset_user',user_id=user.id)}}" class="inline-form"><button class="light-button">Reset</button></form>
+                  {% if user.id != current_user.id %}
+                  <form method="post" action="{{url_for('update_user_status',user_id=user.id)}}" class="inline-form"><input type="hidden" name="active" value="{{0 if user.active else 1}}"><button class="light-button">{{'Deactivate' if user.active else 'Activate'}}</button></form>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="empty-state">No users yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      {% elif view=='portal_workstreams' %}{% include 'platform_portal.html' %}
+
+      {% elif view=='portal' %}
+      {% if portal_preview %}<div class="page-head"><div><p class="eyebrow">CLIENT EXPERIENCE</p><h1>Client Portal</h1><p>Clients receive a focused workspace for progress, approvals and requests.</p></div></div><article class="surface portal-preview"><i data-lucide="shield-check"></i><h2>Role-protected client workspace</h2><p>Create a client user from Admin Users and link it to a client account. Each client can access only their own visible projects, work and content.</p></article>
+      {% else %}<div class="page-head"><div><p class="eyebrow">{{client.name|upper}}</p><h1>Your workspace</h1><p>Progress, content and decisions shared by your agency team.</p></div><details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>New request</summary><form method="post" action="{{url_for('create_client_request')}}" class="quick-form"><h3>Send a request</h3><input name="title" placeholder="What do you need?" required><select name="priority"><option>Medium</option><option>High</option><option>Low</option></select><input type="date" name="due_date"><textarea name="description" placeholder="Add useful context"></textarea><button class="primary">Send request</button></form></details></div><div class="portal-grid"><article class="surface"><div class="section-head"><h2>Projects</h2><b>{{projects|length}}</b></div>{% for p in projects %}<div class="portal-row"><span><strong>{{p.name}}</strong><small>{{p.status}}</small></span><span class="health {{p.health|lower|replace(' ','-')}}">{{p.health}}</span></div>{% endfor %}</article><article class="surface"><div class="section-head"><h2>Requests</h2><b>{{requests|length}}</b></div>{% for r in requests %}<div class="portal-row"><span><strong>{{r.title}}</strong><small>{{r.status}}</small></span><span>{{r.priority}}</span></div>{% else %}<p class="muted">No requests yet.</p>{% endfor %}</article></div><article class="surface"><div class="section-head"><h2>Shared work</h2></div>{% include 'platform_task_table.html' %}</article><div class="section-head standalone"><h2>Content and approvals</h2><a href="{{url_for('content_view')}}">Open approvals →</a></div><div class="portal-content">{% for item in content_items %}<article class="surface content-card"><div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div><h3>{{item.title}}</h3><p>{{item.status}}</p></article>{% else %}<p class="muted">No content has been shared yet.</p>{% endfor %}</div>{% endif %}
+
+      {% elif view=='search' %}
+      <div class="page-head"><div><p class="eyebrow">WORKSPACE SEARCH</p><h1>Results for “{{query}}”</h1><p>{{results|length}} connected records found.</p></div></div>
+      <article class="surface search-list">{% for result in results %}<a href="{{result.url}}"><span class="row-icon">{{result.title[0]}}</span><div><small>{{result.kind}}</small><strong>{{result.title}}</strong><p>{{result.detail or ''}}</p></div><i data-lucide="arrow-up-right"></i></a>{% else %}<div class="empty-state">Try a client, project, task, idea or contact.</div>{% endfor %}</article>
+
+      {% elif view=='settings' %}
+      <div class="page-head"><div><p class="eyebrow">WORKSPACE DESIGN</p><h1>Services & workflows</h1><p>Templates give every service the right process without creating separate apps.</p></div><details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>Custom service</summary><form method="post" action="{{url_for('create_service')}}" class="quick-form"><h3>New service workflow</h3><input name="name" placeholder="Service name" required><textarea name="description" placeholder="Outcome and scope"></textarea><textarea name="stages" placeholder="Stages separated by commas">Planning, Production, Internal Review, Client Review, Delivered</textarea><button class="primary">Create workflow</button></form></details></div>
+      <div class="service-grid">{% for service in services %}<article class="surface service-card"><div class="service-top"><span style="background:{{service.color}}"></span><div><h2>{{service.name}}</h2><p>{{service.description}}</p></div></div><ol>{% for stage in service_stages[service.id] %}<li><span>{{stage.position}}</span><strong>{{stage.name}}</strong>{% if stage.client_approval %}<b>Client approval</b>{% endif %}</li>{% endfor %}</ol></article>{% endfor %}</div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+<div class="ai-panel"><div class="ai-backdrop" data-ai-close></div><aside><div class="ai-head"><div class="ai-orb"><i data-lucide="sparkles"></i></div><div><p class="eyebrow">AAPTI INTELLIGENCE</p><h2>Ask the workspace</h2></div><button data-ai-close><i data-lucide="x"></i></button></div><div class="ai-conversation"><div class="ai-message"><strong>Ready when you are.</strong><p>I can help you understand clients, work, capacity and approvals.</p></div><div class="prompt-chips"><button>What needs attention?</button><button>What is overdue?</button><button>Summarize today</button></div></div><form class="ai-form"><textarea placeholder="Ask what is happening…" required></textarea><button><i data-lucide="arrow-up"></i></button></form></aside></div>
+<script src="{{url_for('static',filename='app.js')}}"></script>
+</body>
+</html>

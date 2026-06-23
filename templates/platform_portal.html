@@ -1,0 +1,108 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{{client.name|upper}}</p>
+    <h1>Your workspace</h1>
+    <p>Progress, content and decisions shared by your agency team.</p>
+  </div>
+  <details class="action-menu">
+    <summary class="primary"><i data-lucide="plus"></i>New request</summary>
+    <form method="post" action="{{url_for('create_client_request')}}" class="quick-form">
+      <h3>Send a request</h3>
+      <input name="title" placeholder="What do you need?" required>
+      <select name="priority"><option>Medium</option><option>High</option><option>Low</option></select>
+      <input type="date" name="due_date">
+      <textarea name="description" placeholder="Add useful context"></textarea>
+      <button class="primary">Send request</button>
+    </form>
+  </details>
+</div>
+
+<div class="portal-grid">
+  <article class="surface">
+    <div class="section-head"><h2>Roadmap</h2><b>{{workstreams|length}}</b></div>
+    <p class="muted">Your active service workstreams, progress, next task and due dates.</p>
+  </article>
+  <article class="surface">
+    <div class="section-head"><h2>Requests</h2><b>{{requests|length}}</b></div>
+    {% for r in requests %}
+    <div class="portal-row"><span><strong>{{r.title}}</strong><small>{{r.status}}</small></span><span>{{r.priority}}</span></div>
+    {% else %}
+    <p class="muted">No requests yet.</p>
+    {% endfor %}
+  </article>
+</div>
+
+<div class="section-head standalone">
+  <div>
+    <p class="eyebrow">ROADMAP</p>
+    <h2>Your service workstreams</h2>
+  </div>
+</div>
+{% include 'platform_workstreams.html' %}
+
+<div class="section-head standalone">
+  <div>
+    <p class="eyebrow">RESULTS</p>
+    <h2>What improved or shipped</h2>
+  </div>
+</div>
+<div class="result-service-strip">
+  {% for item in result_service_totals %}
+  <article class="surface"><small>{{item.service_name}}</small><strong>{{item.total}}</strong><span>latest {{item.latest_period or 'not dated'}}</span></article>
+  {% else %}
+  <article class="surface"><small>No shared results yet</small><strong>0</strong><span>Your team will share outcomes here.</span></article>
+  {% endfor %}
+</div>
+{% include 'platform_results.html' %}
+
+<article class="surface">
+  <div class="section-head"><h2>Shared work</h2></div>
+  {% include 'platform_task_table.html' %}
+</article>
+
+<div class="section-head standalone">
+  <div>
+    <p class="eyebrow">DECISIONS</p>
+    <h2>Work waiting for your approval</h2>
+  </div>
+</div>
+<div class="approval-grid">
+  {% for task in tasks if task.approval_status=='Waiting for client' %}
+  <article class="surface approval-card">
+    <span class="approval-pill">Waiting for client</span>
+    <h3>{{task.title}}</h3>
+    <p>{{task.description or task.project_name or 'Shared work item'}}</p>
+    <small>{{task.service_name or 'Service'}} · Due {{task.due_date or 'not set'}}</small>
+    <form method="post" action="{{url_for('decide_task_approval',task_id=task.id)}}">
+      <textarea name="comment" placeholder="Optional comment for the team"></textarea>
+      <div><button class="light-button" name="decision" value="changes">Request changes</button><button class="primary" name="decision" value="approve">Approve</button></div>
+    </form>
+    {% for note in approval_comments.get(('task',task.id),[])[:2] %}<p class="approval-note">{{note.body}}</p>{% endfor %}
+  </article>
+  {% else %}
+  <p class="muted">No work is waiting for your decision right now.</p>
+  {% endfor %}
+</div>
+
+<div class="section-head standalone">
+  <h2>Content and approvals</h2>
+  <a href="{{url_for('content_view')}}">Open approvals →</a>
+</div>
+<div class="portal-content">
+  {% for item in content_items %}
+  <article class="surface content-card">
+    <div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div>
+    <h3>{{item.title}}</h3>
+    <p>{{item.status}}{% if item.approval_status!='Not required' %} · {{item.approval_status}}{% endif %}</p>
+    {% if item.approval_status=='Waiting for client' %}
+    <form method="post" action="{{url_for('decide_content_approval',item_id=item.id)}}" class="approval-actions-mini">
+      <textarea name="comment" placeholder="Optional comment"></textarea>
+      <div><button class="light-button" name="decision" value="changes">Request changes</button><button class="primary" name="decision" value="approve">Approve</button></div>
+    </form>
+    {% endif %}
+    {% for note in approval_comments.get(('content',item.id),[])[:1] %}<p class="approval-note">{{note.body}}</p>{% endfor %}
+  </article>
+  {% else %}
+  <p class="muted">No content has been shared yet.</p>
+  {% endfor %}
+</div>

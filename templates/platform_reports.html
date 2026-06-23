@@ -1,0 +1,121 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">REALTIME REPORTS</p>
+    <h1>Management reports</h1>
+    <p>Live numbers from CRM, clients, workstreams, content, approvals, capacity and results.</p>
+  </div>
+  <a class="light-button" href="{{url_for('reports_export')}}"><i data-lucide="download"></i>Export legacy CSV</a>
+</div>
+
+<form method="get" action="{{url_for('reports_view')}}" class="report-filter">
+  <input type="date" name="date_from" value="{{report_filters.date_from}}">
+  <input type="date" name="date_to" value="{{report_filters.date_to}}">
+  <select name="client_id"><option value="">All clients</option>{% for c in clients %}<option value="{{c.id}}" {{'selected' if report_filters.client_id|string==c.id|string}}>{{c.name}}</option>{% endfor %}</select>
+  <select name="service_id"><option value="">All services</option>{% for s in services %}<option value="{{s.id}}" {{'selected' if report_filters.service_id|string==s.id|string}}>{{s.name}}</option>{% endfor %}</select>
+  <select name="owner_id"><option value="">All owners</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}" {{'selected' if report_filters.owner_id|string==p.id|string}}>{{p.name}}</option>{% endfor %}</select>
+  <select name="approval"><option value="">Any approval</option><option value="waiting" {{'selected' if report_filters.approval=='waiting'}}>Waiting</option><option value="decided" {{'selected' if report_filters.approval=='decided'}}>Decided</option></select>
+  <button class="light-button">Apply</button>
+  <a href="{{url_for('reports_view')}}" class="clear-filter">Clear</a>
+</form>
+
+<div class="report-kpis">
+  <article class="surface"><small>Clients</small><strong>{{report_stats.clients}}</strong><span>Active in filter</span></article>
+  <article class="surface"><small>Open leads</small><strong>{{report_stats.leads}}</strong><span>Pipeline in motion</span></article>
+  <article class="surface"><small>Open work</small><strong>{{report_stats.open_tasks}}</strong><span>{{report_stats.overdue}} overdue</span></article>
+  <article class="surface"><small>Due today</small><strong>{{report_stats.due_today}}</strong><span>Tasks due now</span></article>
+  <article class="surface"><small>Approvals</small><strong>{{report_stats.approvals}}</strong><span>Client blockers</span></article>
+  <article class="surface"><small>Content</small><strong>{{report_stats.content_scheduled}} / {{report_stats.content_published}}</strong><span>Scheduled / published</span></article>
+  <article class="surface"><small>Results</small><strong>{{report_stats.results}}</strong><span>Recorded outcomes</span></article>
+  <article class="surface"><small>Progress</small><strong>{{report_stats.avg_progress}}%</strong><span>Avg workstream progress</span></article>
+</div>
+
+<div class="report-grid">
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">PIPELINE</p><h2>Lead stages</h2></div></div>
+    <div class="report-bars">
+      {% for stage in report_lead_stages %}
+      <div><span>{{stage.name}}</span><b>{{stage.count}}</b><i style="width:{{[stage.count*18,100]|min}}%"></i></div>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">BLOCKERS</p><h2>Oldest waiting approvals</h2></div></div>
+    <div class="report-list">
+      {% for item in report_approvals %}
+      <a href="{{url_for('content_view',mode='approvals') if item.kind=='Content' else url_for('work_view')}}">
+        <span><strong>{{item.title}}</strong><small>{{item.kind}} · {{item.client}}</small></span>
+        <b>{{item.requested_at[:10] if item.requested_at else 'No date'}}</b>
+      </a>
+      {% else %}
+      <p class="muted">No approvals are blocking delivery.</p>
+      {% endfor %}
+    </div>
+  </article>
+</div>
+
+<div class="report-grid wide">
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">SERVICE DELIVERY</p><h2>Service-wise activity</h2></div></div>
+    <div class="service-report-grid">
+      {% for service in report_service_totals %}
+      <div>
+        <strong>{{service.name}}</strong>
+        <span>{{service.tasks}} tasks · {{service.done}} done</span>
+        <span>{{service.content}} content · {{service.results}} results</span>
+      </div>
+      {% else %}
+      <p class="muted">No service activity yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">TEAM CAPACITY</p><h2>Workload state</h2></div><span>{{report_stats.overloaded}} overloaded</span></div>
+    <div class="report-list">
+      {% for load in report_capacity %}
+      <a href="{{url_for('team_view')}}">
+        <span><strong>{{load.name}}</strong><small>{{load.open_tasks}} open tasks · {{'%g'|format(load.weekly_hours)}}h this week</small></span>
+        <b>{{load.percent}}%</b>
+      </a>
+      {% else %}
+      <p class="muted">No team workload yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+</div>
+
+<div class="report-grid wide">
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">WORKSTREAMS</p><h2>Project progress</h2></div></div>
+    <div class="project-progress-list">
+      {% for project in report_projects %}
+      <a href="{{url_for('work_view')}}">
+        <span><strong>{{project.name}}</strong><small>{{project.client_name}} · {{project.task_count}} task{{'' if project.task_count==1 else 's'}}</small></span>
+        <div class="progress"><span style="width:{{project.avg_progress}}%"></span></div>
+        <b>{{project.avg_progress}}%</b>
+      </a>
+      {% else %}
+      <p class="muted">No projects yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+
+  <article class="surface report-panel">
+    <div class="section-head"><div><p class="eyebrow">RECENT</p><h2>Recent work and content</h2></div></div>
+    <div class="report-list">
+      {% for item in report_recent %}
+      <a href="{{url_for('content_view') if item.kind=='Content' else url_for('work_view')}}">
+        <span><strong>{{item.title}}</strong><small>{{item.kind}} · {{item.client}} · {{item.status}}</small></span>
+        <b>{{item.date[:10] if item.date else 'No date'}}</b>
+      </a>
+      {% else %}
+      <p class="muted">No recent activity yet.</p>
+      {% endfor %}
+    </div>
+  </article>
+</div>
+
+<div class="section-head standalone"><div><p class="eyebrow">OUTCOMES</p><h2>Latest recorded results</h2></div></div>
+{% set result_cards = report_results %}
+{% include 'platform_results.html' %}

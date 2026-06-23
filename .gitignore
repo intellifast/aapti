@@ -1,0 +1,9 @@
+.env
+.arcturide-server.lock
+__pycache__/
+*.pyc
+uploads/*
+!uploads/.gitkeep
+*.db
+*.sqlite
+*.sqlite3

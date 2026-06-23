@@ -1,0 +1,131 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">GROWTH</p>
+    <h1>CRM</h1>
+    <p>One pipeline from first conversation to active client.</p>
+  </div>
+  <details class="action-menu">
+    <summary class="primary"><i data-lucide="plus"></i>Add lead</summary>
+    <form method="post" action="{{url_for('create_lead')}}" class="quick-form wide-form">
+      <h3>New lead</h3>
+      <input name="company" placeholder="Company name" required>
+      <div class="form-pair">
+        <input name="contact_name" placeholder="Contact person">
+        <input name="industry" placeholder="Industry">
+      </div>
+      <div class="form-pair">
+        <input type="email" name="email" placeholder="Email">
+        <input name="phone" placeholder="Phone">
+      </div>
+      <input name="website" placeholder="Website">
+      <div class="form-pair">
+        <select name="source">
+          <option value="">Lead source</option>
+          <option>Cold email</option>
+          <option>Social media</option>
+          <option>Referral</option>
+          <option>Inbound</option>
+          <option>Existing network</option>
+        </select>
+        <select name="stage">
+          {% for stage in ['New','Qualified','Discovery','Proposal'] %}<option>{{stage}}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-pair">
+        <label>Interested service/workstream
+          <select name="service_id">
+            <option value="">Select service</option>
+            {% for service in services %}<option value="{{service.id}}">{{service.name}}</option>{% endfor %}
+          </select>
+        </label>
+        <select name="owner_id">
+          <option value="">Owner/account manager</option>
+          {% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-pair">
+        <label>Expected project value
+          <input type="number" name="expected_value" min="0" placeholder="Amount in INR">
+        </label>
+        <label>Win probability (%)
+          <input type="number" name="probability" min="0" max="100" value="25" placeholder="Chance from 0 to 100">
+          <small>Used to calculate weighted pipeline value.</small>
+        </label>
+      </div>
+      <label>Next follow-up date
+        <input type="date" name="next_follow_up">
+        <small>When the owner should contact this lead next.</small>
+      </label>
+      <textarea name="notes" placeholder="Conversation notes, promise, context"></textarea>
+      <button class="primary">Add to pipeline</button>
+    </form>
+  </details>
+</div>
+
+<div class="crm-summary">
+  <article class="surface"><small>Open leads</small><strong>{{crm_stats.open}}</strong><span>Active pipeline</span></article>
+  <article class="surface"><small>Pipeline value</small><strong>₹{{'{:,.0f}'.format(crm_stats.pipeline_value)}}</strong><span>Total expected value</span></article>
+  <article class="surface"><small>Weighted value</small><strong>₹{{'{:,.0f}'.format(crm_stats.weighted_value)}}</strong><span>Probability adjusted</span></article>
+  <article class="surface"><small>Follow-ups due</small><strong>{{crm_stats.followups_due}}</strong><span>Needs attention</span></article>
+</div>
+
+<div class="crm-layout">
+  <div class="pipeline">
+    {% for stage in lead_stages %}
+    <section>
+      <header><span>{{stage}}</span><b>{{leads|selectattr('stage','equalto',stage)|list|length}}</b></header>
+      <div>
+        {% for lead in leads if lead.stage==stage %}
+        <article class="pipeline-card">
+          <small>{{lead.source or 'Source not set'}} · {{lead.owner_name or 'Unassigned'}}</small>
+          <h3>{{lead.company}}</h3>
+          <p>{{lead.contact_name or 'No contact'}} · {{lead.service_interest or 'Service not set'}}</p>
+          <div class="lead-card-meta">
+            <span><small>Follow-up</small><strong>{{lead.next_follow_up or 'No date'}}</strong></span>
+            <span><small>Value</small><strong>₹{{'{:,.0f}'.format(lead.expected_value or 0)}}</strong></span>
+            <span><small>Chance</small><strong>{{lead.probability or 0}}%</strong></span>
+          </div>
+          <form method="post" action="{{url_for('update_lead_stage',lead_id=lead.id)}}">
+            <select name="stage" onchange="this.form.submit()">{% for s in lead_stages %}<option {{'selected' if s==lead.stage}}>{{s}}</option>{% endfor %}</select>
+          </form>
+          <details class="lead-tools">
+            <summary>Notes & actions</summary>
+            <form method="post" action="{{url_for('add_lead_note',lead_id=lead.id)}}">
+              <textarea name="note" placeholder="Add follow-up note"></textarea>
+              <button class="light-button">Add note</button>
+            </form>
+            {% if lead.stage in ['Qualified','Discovery','Proposal','Won'] %}
+            <a class="primary lead-convert-link" href="{{url_for('prepare_lead_conversion',lead_id=lead.id)}}">Convert to client</a>
+            {% endif %}
+          </details>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+
+  <aside class="crm-side">
+    <article class="surface">
+      <div class="section-head"><div><p class="eyebrow">FOLLOW-UP</p><h2>Next conversations</h2></div></div>
+      {% for lead in followups %}
+      <div class="crm-side-row">
+        <span><strong>{{lead.company}}</strong><small>{{lead.next_follow_up}} · {{lead.owner_name or 'Unassigned'}}</small></span>
+        <b>{{lead.stage}}</b>
+      </div>
+      {% else %}
+      <p class="muted">No follow-ups due in the next 7 days.</p>
+      {% endfor %}
+    </article>
+    <article class="surface">
+      <div class="section-head"><div><p class="eyebrow">HISTORY</p><h2>Lead activity</h2></div></div>
+      {% for activity in lead_activity %}
+      <div class="crm-side-row">
+        <span><strong>{{activity.action}}</strong><small>{{activity.company}} · {{activity.user_name or 'System'}}</small><em>{{activity.detail}}</em></span>
+      </div>
+      {% else %}
+      <p class="muted">Activity appears here as leads move.</p>
+      {% endfor %}
+    </article>
+  </aside>
+</div>
