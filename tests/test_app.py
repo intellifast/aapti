@@ -445,7 +445,7 @@ class AgencyPlatformTests(unittest.TestCase):
         self.assertIn(b"data-approval=\"1\"", work.data)
         task_page = client.get(f"/work/tasks/{task_id}")
         self.assertEqual(task_page.status_code, 200)
-        for text in (b"Stage 7 approval task", b"WORK DETAILS", b"Needs client-facing review before completion.", b"Update status", b"Edit task", b"Save task changes"):
+        for text in (b"Stage 7 approval task", b"WORK DETAILS", b"Needs client-facing review before completion.", b"Update status", b"Edit task", b"Save task changes", b"Work updates", b"Post update"):
             self.assertIn(text, task_page.data)
 
         updated = client.post(f"/work/tasks/{task_id}", data={
@@ -467,6 +467,13 @@ class AgencyPlatformTests(unittest.TestCase):
         saved = con.execute("SELECT title,status,priority,progress,estimated_hours,due_date,description,client_visible FROM tasks WHERE id=?", (task_id,)).fetchone()
         con.close()
         self.assertEqual(saved, ("Updated stage 7 task", "Working", "Low", 45, 4.25, "2026-07-01", "Updated task notes.", 1))
+        note = client.post(f"/work/tasks/{task_id}/updates", data={"body": "Finished first pass, waiting on assets.", "client_visible": "on"}, follow_redirects=True)
+        self.assertEqual(note.status_code, 200)
+        self.assertIn(b"Finished first pass, waiting on assets.", note.data)
+        con = sqlite3.connect(os.environ["ARCTURIDE_DB"])
+        comment = con.execute("SELECT body,client_visible FROM entity_comments WHERE entity_type='task' AND entity_id=? ORDER BY id DESC LIMIT 1", (task_id,)).fetchone()
+        con.close()
+        self.assertEqual(comment, ("Finished first pass, waiting on assets.", 1))
 
         filtered = client.get(f"/work?client_id={client_id}&service_id={service_id}&assignee_id={owner_id}&status=Client+Review&approval=required&due=week")
         self.assertNotIn(b"Updated stage 7 task", filtered.data)
@@ -474,6 +481,8 @@ class AgencyPlatformTests(unittest.TestCase):
         self.assertIn(b"Updated stage 7 task", filtered.data)
         unrelated = client.get(f"/work?client_id={client_id}&service_id={service_id}&assignee_id={owner_id}&status=Completed&approval=required")
         self.assertNotIn(b"Updated stage 7 task", unrelated.data)
+        status_redirect = client.post(f"/work/tasks/{task_id}/status", data={"status": "Internal Review", "next": f"/work/tasks/{task_id}"})
+        self.assertEqual(status_redirect.location, f"/work/tasks/{task_id}")
 
     def test_task_assignment_rejects_project_service_stage_mismatch(self):
         client = self.login("vikash@aapti.local", "vikash123")

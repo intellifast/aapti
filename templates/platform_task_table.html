@@ -43,6 +43,7 @@
           <td>
             {% if view=='work' %}
               <form method="post" action="{{url_for('update_task_status',task_id=task.id)}}">
+                <input type="hidden" name="next" value="{{request.full_path}}">
                 <select name="status" class="status-select" onchange="this.form.submit()">
                   {% for s in ['Not started','Working','Internal Review','Client Review','Approved','Changes Requested','Completed'] %}
                     <option {{'selected' if s==task.status}}>{{s}}</option>

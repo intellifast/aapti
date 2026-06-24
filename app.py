@@ -1427,6 +1427,10 @@ def task_detail(task_id):
         con.close(); return ("Not found",404)
     data["task"]=task
     data["task_statuses"]=["Not started","Working","Internal Review","Client Review","Approved","Changes Requested","Completed"]
+    data["task_comments"]=con.execute(
+        "SELECT ec.*,u.name user_name FROM entity_comments ec LEFT JOIN users u ON u.id=ec.user_id WHERE ec.workspace_id=? AND ec.entity_type='task' AND ec.entity_id=? ORDER BY ec.created_at DESC",
+        (session["workspace_id"],task_id),
+    ).fetchall()
     con.close()
     return render_template("platform.html",view="task_detail",**data)
 
@@ -1526,6 +1530,27 @@ def update_task(task_id):
     flash("Task updated.","success"); return redirect(url_for("task_detail",task_id=task_id))
 
 
+@app.post("/work/tasks/<int:task_id>/updates")
+@login_required
+def add_task_update(task_id):
+    if session.get("role")=="client": return ("Forbidden",403)
+    body=(request.form.get("body") or "").strip()
+    if not body:
+        flash("Write an update before posting.","error")
+        return redirect(url_for("task_detail",task_id=task_id))
+    client_visible=1 if request.form.get("client_visible") and can_manage_workspace() else 0
+    with transaction() as con:
+        task=con.execute("SELECT * FROM tasks WHERE id=? AND workspace_id=?",(task_id,session["workspace_id"])).fetchone()
+        if not task or (session.get("role")=="employee" and task["assignee_id"]!=session["user_id"]):
+            return ("Forbidden",403)
+        con.execute(
+            "INSERT INTO entity_comments(workspace_id,entity_type,entity_id,user_id,body,client_visible) VALUES(?,?,?,?,?,?)",
+            (session["workspace_id"],"task",task_id,session["user_id"],body,client_visible),
+        )
+        con.execute("UPDATE tasks SET updated_at=CURRENT_TIMESTAMP WHERE id=?",(task_id,))
+    flash("Task update posted.","success"); return redirect(url_for("task_detail",task_id=task_id))
+
+
 @app.post("/work/tasks/<int:task_id>/status")
 @login_required
 def update_task_status(task_id):
@@ -1537,7 +1562,7 @@ def update_task_status(task_id):
         approval_status=approval_status_for(status, task["client_visible"])
         progress=100 if status in ("Completed","Approved") else task["progress"]
         con.execute("UPDATE tasks SET status=?,progress=?,approval_status=?,approval_requested_at=CASE WHEN ?='Waiting for client' AND approval_requested_at IS NULL THEN CURRENT_TIMESTAMP ELSE approval_requested_at END,approval_decided_at=CASE WHEN ? IN ('Approved','Changes requested') THEN CURRENT_TIMESTAMP ELSE approval_decided_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?",(status,progress,approval_status,approval_status,approval_status,task_id))
-    return redirect(url_for("work_view"))
+    return redirect(request.form.get("next") or url_for("work_view"))
 
 
 @app.post("/work/tasks/<int:task_id>/approval")
