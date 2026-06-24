@@ -193,6 +193,8 @@ def init_db():
     if "created_at" not in user_columns:
         con.execute("ALTER TABLE users ADD COLUMN created_at TEXT")
         con.execute("UPDATE users SET created_at=CURRENT_TIMESTAMP WHERE created_at IS NULL")
+    if "last_login_at" not in user_columns:
+        con.execute("ALTER TABLE users ADD COLUMN last_login_at TEXT")
     lead_columns = {row["name"] for row in con.execute("PRAGMA table_info(leads)").fetchall()}
     if "expected_value" not in lead_columns:
         con.execute("ALTER TABLE leads ADD COLUMN expected_value REAL DEFAULT 0")
@@ -670,6 +672,8 @@ def login():
                 with transaction() as write_con:
                     token = create_password_reset_token(write_con, user["id"], "setup", user["id"], 2)
                 return redirect(url_for("reset_password", token=token))
+            with transaction() as write_con:
+                write_con.execute("UPDATE users SET last_login_at=CURRENT_TIMESTAMP WHERE id=?", (user["id"],))
             session.clear(); session.update(user_id=user["id"], role=user["role"], client_name=user["client_name"], client_id=user["client_id"], workspace_id=user["workspace_id"]); return redirect(request.args.get("next") or url_for("dashboard"))
         flash("That email and password do not match.", "error")
     return render_template("login.html")
@@ -1482,6 +1486,44 @@ def create_task():
         approval_status=approval_status_for(status, client_visible)
         con.execute("INSERT INTO tasks(workspace_id,project_id,service_id,stage_id,title,description,assignee_id,status,priority,progress,estimated_hours,due_date,client_visible,approval_status,approval_requested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,CASE WHEN ?='Waiting for client' THEN CURRENT_TIMESTAMP ELSE NULL END)",(session["workspace_id"],project_id,service_id,stage_id,f.get("title").strip(),f.get("description"),f.get("assignee_id") or None,status,f.get("priority","Medium"),f.get("progress",0) or 0,parse_estimated_hours(f.get("estimated_hours")),f.get("due_date") or None,client_visible,approval_status,approval_status))
     flash("Task assigned.","success"); return redirect(url_for("work_view"))
+
+
+@app.post("/work/tasks/<int:task_id>")
+@login_required
+def update_task(task_id):
+    if not can_manage_workspace(): return ("Forbidden",403)
+    f=request.form
+    if not (f.get("title") or "").strip(): flash("Task title is required.","error"); return redirect(url_for("task_detail",task_id=task_id))
+    with transaction() as con:
+        task=con.execute("SELECT * FROM tasks WHERE id=? AND workspace_id=?",(task_id,session["workspace_id"])).fetchone()
+        if not task: return ("Not found",404)
+        project_id=f.get("project_id") or None
+        service_id=f.get("service_id") or None
+        stage_id=f.get("stage_id") or None
+        if project_id and not con.execute("SELECT 1 FROM projects WHERE id=? AND workspace_id=?",(project_id,session["workspace_id"])).fetchone():
+            raise sqlite3.IntegrityError("Invalid project selection")
+        if stage_id:
+            stage=con.execute("SELECT ws.* FROM workflow_stages ws JOIN services s ON s.id=ws.service_id WHERE ws.id=? AND s.workspace_id=? AND s.active=1",(stage_id,session["workspace_id"])).fetchone()
+            if not stage: raise sqlite3.IntegrityError("Invalid workflow stage")
+            if service_id and int(service_id) != stage["service_id"]:
+                raise sqlite3.IntegrityError("Workflow stage does not belong to the selected service")
+            service_id=service_id or str(stage["service_id"])
+        if service_id and not con.execute("SELECT 1 FROM services WHERE id=? AND workspace_id=? AND active=1",(service_id,session["workspace_id"])).fetchone():
+            raise sqlite3.IntegrityError("Invalid service selection")
+        if project_id and service_id and not con.execute("SELECT 1 FROM project_services WHERE project_id=? AND service_id=?",(project_id,service_id)).fetchone():
+            raise sqlite3.IntegrityError("Service is not active on the selected project")
+        status=f.get("status","Not started")
+        if status not in ("Not started","Working","Internal Review","Client Review","Approved","Changes Requested","Completed"): return ("Invalid status",400)
+        progress=max(0,min(100,int(f.get("progress") or 0)))
+        client_visible=1 if f.get("client_visible") else 0
+        approval_status=approval_status_for(status, client_visible)
+        if status in ("Completed","Approved"):
+            progress=100
+        con.execute(
+            "UPDATE tasks SET project_id=?,service_id=?,stage_id=?,title=?,description=?,assignee_id=?,status=?,priority=?,progress=?,estimated_hours=?,due_date=?,client_visible=?,approval_status=?,approval_requested_at=CASE WHEN ?='Waiting for client' AND approval_requested_at IS NULL THEN CURRENT_TIMESTAMP ELSE approval_requested_at END,approval_decided_at=CASE WHEN ? IN ('Approved','Changes requested') THEN CURRENT_TIMESTAMP ELSE approval_decided_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (project_id,service_id,stage_id,f.get("title").strip(),f.get("description"),f.get("assignee_id") or None,status,f.get("priority","Medium"),progress,parse_estimated_hours(f.get("estimated_hours")),f.get("due_date") or None,client_visible,approval_status,approval_status,approval_status,task_id),
+        )
+    flash("Task updated.","success"); return redirect(url_for("task_detail",task_id=task_id))
 
 
 @app.post("/work/tasks/<int:task_id>/status")

@@ -42,6 +42,10 @@ class AgencyPlatformTests(unittest.TestCase):
         admin_page = client.get("/admin/users")
         self.assertEqual(admin_page.status_code, 200)
         self.assertIn(b"Users & access", admin_page.data)
+        self.assertIn(b"Last login", admin_page.data)
+        con = sqlite3.connect(os.environ["ARCTURIDE_DB"])
+        self.assertIsNotNone(con.execute("SELECT last_login_at FROM users WHERE email='vikash@aapti.local'").fetchone()[0])
+        con.close()
 
         created = client.post("/admin/users", data={
             "name": "New Team Member",
@@ -441,13 +445,35 @@ class AgencyPlatformTests(unittest.TestCase):
         self.assertIn(b"data-approval=\"1\"", work.data)
         task_page = client.get(f"/work/tasks/{task_id}")
         self.assertEqual(task_page.status_code, 200)
-        for text in (b"Stage 7 approval task", b"WORK DETAILS", b"Needs client-facing review before completion.", b"Update status"):
+        for text in (b"Stage 7 approval task", b"WORK DETAILS", b"Needs client-facing review before completion.", b"Update status", b"Edit task", b"Save task changes"):
             self.assertIn(text, task_page.data)
 
+        updated = client.post(f"/work/tasks/{task_id}", data={
+            "title": "Updated stage 7 task",
+            "project_id": project_id,
+            "service_id": service_id,
+            "stage_id": stage_id,
+            "assignee_id": owner_id,
+            "status": "Working",
+            "priority": "Low",
+            "progress": "45",
+            "estimated_hours": "4.25",
+            "due_date": "2026-07-01",
+            "description": "Updated task notes.",
+            "client_visible": "on",
+        })
+        self.assertEqual(updated.status_code, 302)
+        con = sqlite3.connect(os.environ["ARCTURIDE_DB"])
+        saved = con.execute("SELECT title,status,priority,progress,estimated_hours,due_date,description,client_visible FROM tasks WHERE id=?", (task_id,)).fetchone()
+        con.close()
+        self.assertEqual(saved, ("Updated stage 7 task", "Working", "Low", 45, 4.25, "2026-07-01", "Updated task notes.", 1))
+
         filtered = client.get(f"/work?client_id={client_id}&service_id={service_id}&assignee_id={owner_id}&status=Client+Review&approval=required&due=week")
-        self.assertIn(b"Stage 7 approval task", filtered.data)
+        self.assertNotIn(b"Updated stage 7 task", filtered.data)
+        filtered = client.get(f"/work?client_id={client_id}&service_id={service_id}&assignee_id={owner_id}&status=Working&due=week")
+        self.assertIn(b"Updated stage 7 task", filtered.data)
         unrelated = client.get(f"/work?client_id={client_id}&service_id={service_id}&assignee_id={owner_id}&status=Completed&approval=required")
-        self.assertNotIn(b"Stage 7 approval task", unrelated.data)
+        self.assertNotIn(b"Updated stage 7 task", unrelated.data)
 
     def test_task_assignment_rejects_project_service_stage_mismatch(self):
         client = self.login("vikash@aapti.local", "vikash123")

@@ -144,6 +144,22 @@
             <span><small>Progress</small><strong>{{task.progress or 0}}%</strong></span>
             <span><small>Approval</small><strong>{{task.approval_status or 'Not required'}}</strong></span>
           </div>
+          {% if current_user.role in ['manager','admin','super_admin'] %}
+          <form method="post" action="{{url_for('update_task',task_id=task.id)}}" class="task-edit-form" data-task-form>
+            <h2>Edit task</h2>
+            <input name="title" value="{{task.title}}" placeholder="Task title" required>
+            <select name="project_id" data-task-project><option value="">Project</option>{% for p in projects %}<option value="{{p.id}}" data-services="{{project_service_map.get(p.id,[])|join(',')}}" {{'selected' if task.project_id==p.id}}>{{p.name}}</option>{% endfor %}</select>
+            <select name="service_id" data-task-service><option value="">Service / workstream</option>{% for s in services %}<option value="{{s.id}}" {{'selected' if task.service_id==s.id}}>{{s.name}}</option>{% endfor %}</select>
+            <select name="stage_id" data-task-stage><option value="">Workflow stage</option>{% for stage in task_stages %}<option value="{{stage.id}}" data-service="{{stage.service_id}}" {{'selected' if task.stage_id==stage.id}}>{{stage.service_name}} - {{stage.name}}</option>{% endfor %}</select>
+            <select name="assignee_id"><option value="">Assignee</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}" {{'selected' if task.assignee_id==p.id}}>{{p.name}}</option>{% endfor %}</select>
+            <div class="form-pair"><select name="priority">{% for p in ['Medium','High','Low'] %}<option {{'selected' if p==task.priority}}>{{p}}</option>{% endfor %}</select><select name="status">{% for s in task_statuses %}<option {{'selected' if s==task.status}}>{{s}}</option>{% endfor %}</select></div>
+            <div class="form-pair"><input type="number" name="progress" min="0" max="100" step="1" value="{{task.progress or 0}}" placeholder="Progress %"><input type="number" name="estimated_hours" min="0.25" max="80" step="0.25" value="{{'%g'|format(task.estimated_hours or 1)}}" placeholder="Estimated hours"></div>
+            <input type="date" name="due_date" value="{{task.due_date or ''}}">
+            <textarea name="description" placeholder="Definition of done">{{task.description or ''}}</textarea>
+            <label class="check-row"><input type="checkbox" name="client_visible" {{'checked' if task.client_visible}}>Client visible / approval-related</label>
+            <button class="primary">Save task changes</button>
+          </form>
+          {% endif %}
         </article>
         <aside class="surface task-detail-side">
           <h2>Status</h2>
@@ -249,13 +265,14 @@
         <div class="section-head"><div><p class="eyebrow">ACCESS CONTROL</p><h2>Workspace users</h2></div><span>{{users|length}} account{{'' if users|length==1 else 's'}}</span></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>User</th><th>Role</th><th>Scope</th><th>Status</th><th>Actions</th></tr></thead>
+            <thead><tr><th>User</th><th>Role</th><th>Scope</th><th>Last login</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {% for user in users %}
               <tr>
                 <td><span class="row-icon">{{user.name[0]}}</span><div><strong>{{user.name}}</strong><small>{{user.email}}</small></div></td>
                 <td><span class="role-pill {{user.role}}">{{user.role|replace('_',' ')|title}}</span></td>
                 <td>{{user.linked_client_name or ('Reports to '+user.manager_name if user.manager_name else 'Full workspace')}}</td>
+                <td>{{user.last_login_at[:16] if user.last_login_at else 'Not yet'}}</td>
                 <td><span class="status {{'approved' if user.active else 'overdue'}}">{{'Active' if user.active else 'Inactive'}}</span>{% if user.must_reset_password %}<small> Password reset required</small>{% endif %}</td>
                 <td>
                   <form method="post" action="{{url_for('admin_reset_user',user_id=user.id)}}" class="inline-form"><button class="light-button">Reset</button></form>
@@ -265,7 +282,7 @@
                 </td>
               </tr>
               {% else %}
-              <tr><td colspan="5" class="empty-state">No users yet.</td></tr>
+              <tr><td colspan="6" class="empty-state">No users yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>

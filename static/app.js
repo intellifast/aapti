@@ -228,7 +228,7 @@ addEventListener('DOMContentLoaded', () => {
       const statuses = [...preferred.filter(status => tasks.some(task => task.status === status)), ...new Set(tasks.map(task => task.status).filter(status => !preferred.includes(status)))];
       board.innerHTML = tasks.length ? `<div class="board-grid">${statuses.map(status => {
         const cards = tasks.filter(task => task.status === status);
-        return `<section class="board-column"><header><span class="status ${slug(status)}">${escapeHtml(status)}</span><b>${cards.length}</b></header><div>${cards.map(task => `<article class="board-card"><strong>${escapeHtml(task.title)}</strong><p>${escapeHtml(task.client)} · ${escapeHtml(task.project)}</p><div><span class="priority ${slug(task.priority)}">${escapeHtml(task.priority)}</span><small>${escapeHtml(task.owner)}</small></div><div class="board-card-foot"><small>${task.due ? `Due ${escapeHtml(task.due)}` : 'No due date'}</small><b>${task.progress}%</b></div></article>`).join('')}</div></section>`;
+        return `<section class="board-column"><header><span class="status ${slug(status)}">${escapeHtml(status)}</span><b>${cards.length}</b></header><div>${cards.map(task => `<a class="board-card" href="${escapeHtml(task.url)}"><strong>${escapeHtml(task.title)}</strong><p>${escapeHtml(task.client)} · ${escapeHtml(task.project)}</p><div><span class="priority ${slug(task.priority)}">${escapeHtml(task.priority)}</span><small>${escapeHtml(task.owner)}</small></div><div class="board-card-foot"><small>${task.due ? `Due ${escapeHtml(task.due)}` : 'No due date'}</small><b>${task.progress}%</b></div></a>`).join('')}</div></section>`;
       }).join('')}</div>` : '<div class="view-empty"><strong>No work yet</strong><p>Create a task or service-driven project.</p></div>';
     };
 
@@ -270,6 +270,12 @@ addEventListener('DOMContentLoaded', () => {
       if (mode === 'calendar') renderTaskCalendar();
       localStorage.setItem('arcturide-task-view', mode);
     };
+    taskRows.forEach(row => {
+      row.addEventListener('click', event => {
+        if (event.target.closest('a,button,input,select,textarea,label,form')) return;
+        if (row.dataset.url) window.location.href = row.dataset.url;
+      });
+    });
     buttons.forEach(button => button.addEventListener('click', () => activateTaskView(button.dataset.taskViewMode)));
     const requestedView = taskWorkspace.dataset.initialTaskView;
     const savedView = localStorage.getItem('arcturide-task-view');
