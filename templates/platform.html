@@ -199,7 +199,86 @@
         </aside>
       </div>
 
-      {% elif view=='content' %}{% include 'platform_content_studio.html' %}{% elif view=='content_legacy' %}
+      {% elif view=='content' %}{% include 'platform_content_studio.html' %}
+
+      {% elif view=='content_detail' %}
+      <a class="back-link" href="{{url_for('content_view',mode='studio')}}">Back to Creator Studio</a>
+      <div class="page-head">
+        <div><p class="eyebrow">CONTENT ITEM</p><h1>{{content_item.title}}</h1><p>{{content_item.client_name or 'No client'}} - {{content_item.platform or 'Channel'}} - {{content_item.status}}</p></div>
+        <a class="light-button" href="{{url_for('content_view',mode='calendar')}}">Calendar</a>
+      </div>
+      <div class="task-detail-grid content-detail-grid">
+        <article class="surface task-detail-main">
+          <div class="section-head"><div><p class="eyebrow">CONTENT DETAILS</p><h2>{{content_item.format or 'Content'}}</h2></div><span class="approval-pill">{{content_item.approval_status or 'Not required'}}</span></div>
+          <div class="task-detail-meta">
+            <span><small>Owner</small><strong>{{content_item.owner_name or 'Unassigned'}}</strong></span>
+            <span><small>Publish date</small><strong>{{content_item.publish_date or 'No date'}}</strong></span>
+            <span><small>Service</small><strong>{{content_item.service_name or 'No service'}}</strong></span>
+          </div>
+          {% if current_user.role!='client' %}
+          <form method="post" action="{{url_for('update_content',item_id=content_item.id)}}" class="task-edit-form">
+            <h2>Edit content</h2>
+            <input name="title" value="{{content_item.title}}" placeholder="Content title" required>
+            <select name="client_id"><option value="">Client</option>{% for c in clients %}<option value="{{c.id}}" {{'selected' if content_item.client_id==c.id}}>{{c.name}}</option>{% endfor %}</select>
+            <select name="project_id"><option value="">Campaign/project</option>{% for p in projects %}<option value="{{p.id}}" {{'selected' if content_item.project_id==p.id}}>{{p.name}}</option>{% endfor %}</select>
+            <select name="service_id"><option value="">Service/workstream</option>{% for s in services %}<option value="{{s.id}}" {{'selected' if content_item.service_id==s.id}}>{{s.name}}</option>{% endfor %}</select>
+            <div class="form-pair"><input name="platform" value="{{content_item.platform or ''}}" placeholder="Platform"><input name="format" value="{{content_item.format or ''}}" placeholder="Format"></div>
+            <input name="pillar" value="{{content_item.pillar or ''}}" placeholder="Content pillar">
+            <select name="owner_id"><option value="">Owner</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}" {{'selected' if content_item.owner_id==p.id}}>{{p.name}}</option>{% endfor %}</select>
+            <div class="form-pair"><select name="status">{% for s in content_statuses %}<option {{'selected' if s==content_item.status}}>{{s}}</option>{% endfor %}</select><input type="date" name="publish_date" value="{{content_item.publish_date or ''}}"></div>
+            <textarea name="idea" placeholder="Idea">{{content_item.idea or ''}}</textarea>
+            <textarea name="brief" placeholder="Brief / creative direction">{{content_item.brief or ''}}</textarea>
+            <textarea name="script" placeholder="Script / talking points">{{content_item.script or ''}}</textarea>
+            <textarea name="caption" placeholder="Caption / copy">{{content_item.caption or ''}}</textarea>
+            <textarea name="creative_reference" placeholder="Creative/reference link or asset notes">{{content_item.creative_reference or ''}}</textarea>
+            <textarea name="performance_summary" placeholder="Performance summary after publishing">{{content_item.performance_summary or ''}}</textarea>
+            <textarea name="result_notes" placeholder="Result notes / learnings">{{content_item.result_notes or ''}}</textarea>
+            <label class="check-row"><input type="checkbox" name="client_visible" {{'checked' if content_item.client_visible}}>Visible to client</label>
+            <button class="primary">Save content changes</button>
+          </form>
+          {% else %}
+          <div class="content-readonly">
+            {% for label,value in [('Idea',content_item.idea),('Brief',content_item.brief),('Script',content_item.script),('Caption',content_item.caption)] %}
+            {% if value %}<section><small>{{label}}</small><p>{{value}}</p></section>{% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </article>
+        <aside class="surface task-detail-side">
+          <h2>Status</h2>
+          {% if current_user.role!='client' %}
+          <form method="post" action="{{url_for('update_content_status',item_id=content_item.id)}}">
+            <input type="hidden" name="next" value="{{url_for('content_detail',item_id=content_item.id)}}">
+            <select name="status" class="status-select">{% for s in content_statuses %}<option {{'selected' if s==content_item.status}}>{{s}}</option>{% endfor %}</select>
+            <button class="primary">Update status</button>
+          </form>
+          {% endif %}
+          <div class="workstream-next">
+            <small>Visibility</small>
+            <strong>{{content_item.client_visible and 'Client visible' or 'Internal only'}}</strong>
+            <span>{{content_item.approval_status or 'Not required'}}</span>
+          </div>
+          <div class="task-updates">
+            <h2>Content updates</h2>
+            {% if current_user.role!='client' %}
+            <form method="post" action="{{url_for('add_content_update',item_id=content_item.id)}}">
+              <textarea name="body" placeholder="Post progress, feedback, assets, blockers, or next steps..." required></textarea>
+              {% if current_user.role in ['manager','admin','super_admin'] %}<label class="check-row"><input type="checkbox" name="client_visible">Visible to client</label>{% endif %}
+              <button class="primary">Post update</button>
+            </form>
+            {% endif %}
+            <div class="task-update-list">
+              {% for note in content_comments %}
+              <article><strong>{{note.user_name or 'Team member'}}</strong><small>{{note.created_at[:16]}}{% if note.client_visible %} - Client visible{% else %} - Internal{% endif %}</small><p>{{note.body}}</p></article>
+              {% else %}
+              <p class="muted">No updates yet. Use this for feedback, production notes, asset links, and approvals context.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {% elif view=='content_legacy' %}
       <div class="page-head"><div><p class="eyebrow">PRODUCTION</p><h1>Content Studio</h1><p>Ideas, scripts, creatives and approvals stay on one content item.</p></div>{% if current_user.role!='client' %}<details class="action-menu"><summary class="primary"><i data-lucide="plus"></i>Add content</summary><form method="post" action="{{url_for('create_content')}}" class="quick-form wide-form"><h3>New content item</h3><input name="title" placeholder="Content title" required><select name="client_id"><option value="">Client</option>{% for c in clients %}<option value="{{c.id}}">{{c.name}}</option>{% endfor %}</select><select name="project_id"><option value="">Campaign/project</option>{% for p in projects %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><div class="form-pair"><select name="platform"><option>Instagram</option><option>LinkedIn</option><option>YouTube</option><option>Facebook</option><option>Website</option><option>Email</option></select><select name="format"><option>Reel</option><option>Carousel</option><option>Post</option><option>Story</option><option>Blog</option><option>Ad</option><option>UGC Video</option></select></div><input name="pillar" placeholder="Content pillar"><select name="owner_id"><option value="">Owner</option>{% for p in people if p.role!='client' %}<option value="{{p.id}}">{{p.name}}</option>{% endfor %}</select><textarea name="idea" placeholder="Idea"></textarea><textarea name="brief" placeholder="Brief"></textarea><textarea name="script" placeholder="Script"></textarea><textarea name="caption" placeholder="Caption"></textarea><div class="form-pair"><select name="status">{% for s in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Approved','Scheduled','Published'] %}<option>{{s}}</option>{% endfor %}</select><input type="date" name="publish_date"></div><label class="check-row"><input type="checkbox" name="client_visible" checked>Visible to client</label><button class="primary">Add to studio</button></form></details>{% endif %}</div>
       <div class="content-board">{% for stage in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Changes Requested','Approved','Scheduled','Published'] %}<section><header><span>{{stage}}</span><b>{{content_items|selectattr('status','equalto',stage)|list|length}}</b></header>{% for item in content_items if item.status==stage %}<article class="content-card"><div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div><h3>{{item.title}}</h3><p>{{item.client_name or ''}}{% if item.approval_status!='Not required' %} · {{item.approval_status}}{% endif %}</p><small>{{item.owner_name or 'Unassigned'}} · {{item.publish_date or 'No date'}}</small><form method="post" action="{{url_for('update_content_status',item_id=item.id)}}"><select name="status" onchange="this.form.submit()">{% if current_user.role=='client' %}<option selected>{{item.status}}</option><option>Approved</option><option>Changes Requested</option>{% else %}{% for s in ['Idea','Selected','Script & Caption','Design & Edit','Internal Review','Client Review','Changes Requested','Approved','Scheduled','Published'] %}<option {{'selected' if s==item.status}}>{{s}}</option>{% endfor %}{% endif %}</select></form></article>{% endfor %}</section>{% endfor %}</div>
 

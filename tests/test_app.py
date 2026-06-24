@@ -629,13 +629,53 @@ class AgencyPlatformTests(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         for text in (b"Content Calendar", b"PUBLISHING PLAN", b"July 2026", b"July founder reel script", b"All platforms", b"Service/workstream", b"Creator Studio", b"Approvals", b"Performance"):
             self.assertIn(text, page.data)
+        con = sqlite3.connect(os.environ["ARCTURIDE_DB"])
+        content_id = con.execute("SELECT id FROM content_items WHERE title='July founder reel script'").fetchone()[0]
+        con.close()
+        self.assertIn(f'href="/content/{content_id}"'.encode(), page.data)
         studio = client.get(f"/content?mode=studio&platform=Instagram&service_id={service_id}&status=Scheduled&month=2026-07")
-        for text in (b"Creator Studio", b"PRODUCTION BOARD", b"Ref: Reference", b"Script: Hook"):
+        for text in (b"Creator Studio", b"PRODUCTION BOARD", b"Ref: Reference", b"Script: Hook", b"Open / edit"):
             self.assertIn(text, studio.data)
+        detail = client.get(f"/content/{content_id}")
+        self.assertEqual(detail.status_code, 200)
+        for text in (b"CONTENT ITEM", b"Edit content", b"Content updates", b"Save content changes"):
+            self.assertIn(text, detail.data)
+        edited = client.post(f"/content/{content_id}", data={
+            "title": "Updated founder reel script",
+            "client_id": client_id,
+            "project_id": project_id,
+            "service_id": service_id,
+            "platform": "Instagram",
+            "format": "Reel",
+            "pillar": "Founder story",
+            "idea": "Updated idea",
+            "brief": "Updated brief",
+            "script": "Updated script",
+            "caption": "Updated caption",
+            "creative_reference": "Updated reference",
+            "performance_summary": "Updated performance",
+            "result_notes": "Updated result notes",
+            "owner_id": owner_id,
+            "status": "Internal Review",
+            "publish_date": "2026-07-09",
+            "client_visible": "on",
+        })
+        self.assertEqual(edited.status_code, 302)
+        note = client.post(f"/content/{content_id}/updates", data={"body": "Creative draft is ready for review.", "client_visible": "on"}, follow_redirects=True)
+        self.assertEqual(note.status_code, 200)
+        self.assertIn(b"Creative draft is ready for review.", note.data)
+        status_redirect = client.post(f"/content/{content_id}/status", data={"status": "Client Review", "next": f"/content/{content_id}"})
+        self.assertEqual(status_redirect.location, f"/content/{content_id}")
+        con = sqlite3.connect(os.environ["ARCTURIDE_DB"])
+        saved_edit = con.execute("SELECT title,status,publish_date,brief FROM content_items WHERE id=?", (content_id,)).fetchone()
+        comment = con.execute("SELECT body,client_visible FROM entity_comments WHERE entity_type='content' AND entity_id=? ORDER BY id DESC LIMIT 1", (content_id,)).fetchone()
+        con.close()
+        self.assertEqual(saved_edit, ("Updated founder reel script", "Client Review", "2026-07-09", "Updated brief"))
+        self.assertEqual(comment, ("Creative draft is ready for review.", 1))
         performance = client.get(f"/content?mode=performance&platform=Instagram&service_id={service_id}&status=Scheduled&month=2026-07")
-        self.assertIn(b"Target: saves and profile visits", performance.data)
+        self.assertNotIn(b"Updated founder reel script", performance.data)
         hidden = client.get(f"/content?mode=calendar&platform=LinkedIn&service_id={service_id}&status=Scheduled&month=2026-07")
-        self.assertNotIn(b"July founder reel script", hidden.data)
+        self.assertNotIn(b"Updated founder reel script", hidden.data)
 
     def test_stage_eleven_manual_results_dashboard_and_portal(self):
         manager = self.login("vikash@aapti.local", "vikash123")

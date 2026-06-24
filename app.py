@@ -1632,6 +1632,29 @@ def content_view():
     return render_template("platform.html",view="content",**data)
 
 
+@app.get("/content/<int:item_id>")
+@login_required
+def content_detail(item_id):
+    con=db(); data=platform_lists(con)
+    item=con.execute(
+        "SELECT ci.*,c.name client_name,p.name project_name,u.name owner_name,s.name service_name FROM content_items ci "
+        "LEFT JOIN clients c ON c.id=ci.client_id LEFT JOIN projects p ON p.id=ci.project_id "
+        "LEFT JOIN users u ON u.id=ci.owner_id LEFT JOIN services s ON s.id=ci.service_id "
+        "WHERE ci.id=? AND ci.workspace_id=?",
+        (item_id,session["workspace_id"]),
+    ).fetchone()
+    if not item or (session.get("role")=="client" and (item["client_id"]!=session.get("client_id") or not item["client_visible"])) or (session.get("role")=="employee" and item["owner_id"] not in (None,session["user_id"])):
+        con.close(); return ("Not found",404)
+    data["content_item"]=item
+    data["content_statuses"]=["Idea","Selected","Script & Caption","Design & Edit","Internal Review","Client Review","Changes Requested","Approved","Scheduled","Published"]
+    data["content_comments"]=con.execute(
+        "SELECT ec.*,u.name user_name FROM entity_comments ec LEFT JOIN users u ON u.id=ec.user_id WHERE ec.workspace_id=? AND ec.entity_type='content' AND ec.entity_id=? ORDER BY ec.created_at DESC",
+        (session["workspace_id"],item_id),
+    ).fetchall()
+    con.close()
+    return render_template("platform.html",view="content_detail",**data)
+
+
 @app.post("/content")
 @login_required
 def create_content():
@@ -1646,6 +1669,48 @@ def create_content():
     flash("Content item added to the studio.","success"); return redirect(url_for("content_view"))
 
 
+@app.post("/content/<int:item_id>")
+@login_required
+def update_content(item_id):
+    if session.get("role")=="client": return ("Forbidden",403)
+    f=request.form
+    if not (f.get("title") or "").strip(): flash("Content title is required.","error"); return redirect(url_for("content_detail",item_id=item_id))
+    status=f.get("status","Idea")
+    allowed=("Idea","Selected","Script & Caption","Design & Edit","Internal Review","Client Review","Approved","Changes Requested","Scheduled","Published")
+    if status not in allowed: return ("Invalid status",400)
+    with transaction() as con:
+        item=con.execute("SELECT * FROM content_items WHERE id=? AND workspace_id=?",(item_id,session["workspace_id"])).fetchone()
+        if not item or (session.get("role")=="employee" and item["owner_id"] not in (None,session["user_id"])): return ("Forbidden",403)
+        client_visible=1 if f.get("client_visible") else 0
+        approval_status=approval_status_for(status, client_visible)
+        con.execute(
+            "UPDATE content_items SET client_id=?,project_id=?,service_id=?,title=?,platform=?,format=?,pillar=?,idea=?,brief=?,script=?,caption=?,creative_reference=?,result_notes=?,performance_summary=?,owner_id=?,status=?,publish_date=?,client_visible=?,approval_status=?,approval_requested_at=CASE WHEN ?='Waiting for client' AND approval_requested_at IS NULL THEN CURRENT_TIMESTAMP ELSE approval_requested_at END,approval_decided_at=CASE WHEN ? IN ('Approved','Changes requested') THEN CURRENT_TIMESTAMP ELSE approval_decided_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?",
+            (f.get("client_id") or None,f.get("project_id") or None,f.get("service_id") or None,f.get("title").strip(),f.get("platform"),f.get("format"),f.get("pillar"),f.get("idea"),f.get("brief"),f.get("script"),f.get("caption"),f.get("creative_reference"),f.get("result_notes"),f.get("performance_summary"),f.get("owner_id") or None,status,f.get("publish_date") or None,client_visible,approval_status,approval_status,approval_status,item_id),
+        )
+    flash("Content item updated.","success"); return redirect(url_for("content_detail",item_id=item_id))
+
+
+@app.post("/content/<int:item_id>/updates")
+@login_required
+def add_content_update(item_id):
+    if session.get("role")=="client": return ("Forbidden",403)
+    body=(request.form.get("body") or "").strip()
+    if not body:
+        flash("Write an update before posting.","error")
+        return redirect(url_for("content_detail",item_id=item_id))
+    client_visible=1 if request.form.get("client_visible") and can_manage_workspace() else 0
+    with transaction() as con:
+        item=con.execute("SELECT * FROM content_items WHERE id=? AND workspace_id=?",(item_id,session["workspace_id"])).fetchone()
+        if not item or (session.get("role")=="employee" and item["owner_id"] not in (None,session["user_id"])):
+            return ("Forbidden",403)
+        con.execute(
+            "INSERT INTO entity_comments(workspace_id,entity_type,entity_id,user_id,body,client_visible) VALUES(?,?,?,?,?,?)",
+            (session["workspace_id"],"content",item_id,session["user_id"],body,client_visible),
+        )
+        con.execute("UPDATE content_items SET updated_at=CURRENT_TIMESTAMP WHERE id=?",(item_id,))
+    flash("Content update posted.","success"); return redirect(url_for("content_detail",item_id=item_id))
+
+
 @app.post("/content/<int:item_id>/status")
 @login_required
 def update_content_status(item_id):
@@ -1658,7 +1723,7 @@ def update_content_status(item_id):
         if session.get("role")=="client" and (item["client_id"]!=session.get("client_id") or not item["client_visible"] or status not in ("Approved","Changes Requested")): return ("Forbidden",403)
         approval_status=approval_status_for(status, item["client_visible"])
         con.execute("UPDATE content_items SET status=?,approval_status=?,approval_requested_at=CASE WHEN ?='Waiting for client' AND approval_requested_at IS NULL THEN CURRENT_TIMESTAMP ELSE approval_requested_at END,approval_decided_at=CASE WHEN ? IN ('Approved','Changes requested') THEN CURRENT_TIMESTAMP ELSE approval_decided_at END,updated_at=CURRENT_TIMESTAMP WHERE id=?",(status,approval_status,approval_status,approval_status,item_id))
-    return redirect(url_for("content_view" if session.get("role")!="client" else "portal_view"))
+    return redirect(request.form.get("next") or url_for("content_view" if session.get("role")!="client" else "portal_view"))
 
 
 @app.post("/content/<int:item_id>/approval")

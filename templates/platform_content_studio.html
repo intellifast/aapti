@@ -66,7 +66,7 @@
     <div class="content-day {{'outside' if not cell.day}}">
       <span>{{cell.day or ''}}</span>
       {% for item in cell['items'] %}
-      <article><strong>{{item.title}}</strong><small>{{item.platform or 'Channel'}} · {{item.status}}</small></article>
+      <a class="content-calendar-item" href="{{url_for('content_detail',item_id=item.id)}}"><strong>{{item.title}}</strong><small>{{item.platform or 'Channel'}} - {{item.status}}</small></a>
       {% endfor %}
     </div>
     {% endfor %}{% endfor %}
@@ -82,12 +82,14 @@
     <article class="content-card">
       <div><span>{{item.platform or 'Channel'}}</span><span>{{item.format or 'Format'}}</span></div>
       <h3>{{item.title}}</h3>
-      <p>{{item.client_name or ''}}{% if item.service_name %} · {{item.service_name}}{% endif %}</p>
-      <small>{{item.owner_name or 'Unassigned'}} · {{item.publish_date or 'No date'}}</small>
+      <p>{{item.client_name or ''}}{% if item.service_name %} - {{item.service_name}}{% endif %}</p>
+      <small>{{item.owner_name or 'Unassigned'}} - {{item.publish_date or 'No date'}}</small>
       {% if item.brief %}<p class="content-note">Brief: {{item.brief[:90]}}</p>{% endif %}
       {% if item.script %}<p class="content-note">Script: {{item.script[:90]}}</p>{% endif %}
       {% if item.creative_reference %}<p class="content-note">Ref: {{item.creative_reference[:90]}}</p>{% endif %}
+      <a class="content-open" href="{{url_for('content_detail',item_id=item.id)}}">Open / edit</a>
       <form method="post" action="{{url_for('update_content_status',item_id=item.id)}}">
+        <input type="hidden" name="next" value="{{request.full_path}}">
         <select name="status" onchange="this.form.submit()">{% for s in content_statuses %}<option {{'selected' if s==item.status}}>{{s}}</option>{% endfor %}</select>
       </form>
     </article>
@@ -101,8 +103,9 @@
   <article class="surface approval-card">
     <span class="approval-pill">Waiting for client</span>
     <h3>{{item.title}}</h3>
-    <p>{{item.client_name or 'No client'}} · {{item.platform or 'Channel'}} · {{item.status}}</p>
+    <p>{{item.client_name or 'No client'}} - {{item.platform or 'Channel'}} - {{item.status}}</p>
     <small>Requested {{item.approval_requested_at[:16] if item.approval_requested_at else 'not dated'}}</small>
+    <a class="content-open" href="{{url_for('content_detail',item_id=item.id)}}">Open approval item</a>
   </article>
   {% else %}
   <div class="empty-state surface">No content approvals are waiting.</div>
@@ -116,6 +119,7 @@
     <h3>{{item.title}}</h3>
     {% if item.performance_summary %}<p>{{item.performance_summary}}</p>{% endif %}
     {% if item.result_notes %}<footer><small>{{item.result_notes}}</small></footer>{% endif %}
+    <a class="content-open" href="{{url_for('content_detail',item_id=item.id)}}">Open / update</a>
   </article>
   {% else %}
   <div class="empty-state surface">No content performance notes yet.</div>
