@@ -857,7 +857,8 @@ def connected_capacity_snapshot(con, task_rows=None):
             (workspace_id,),
         ).fetchall()
     today = date.today()
-    week_end = today + timedelta(days=6)
+    week_start = today - timedelta(days=today.weekday())
+    week_end = week_start + timedelta(days=4)
     horizon = today + timedelta(days=13)
     loads = []
     for person in people:
@@ -867,7 +868,7 @@ def connected_capacity_snapshot(con, task_rows=None):
         ]
         week_tasks = [
             row for row in assigned
-            if row["due_date"] and row["due_date"] <= week_end.isoformat()
+            if row["due_date"] and week_start.isoformat() <= row["due_date"] <= week_end.isoformat()
         ]
         due_soon = [
             row for row in assigned
@@ -876,8 +877,8 @@ def connected_capacity_snapshot(con, task_rows=None):
         open_hours = round(sum(remaining_task_hours(row) for row in assigned), 1)
         weekly_hours = round(sum(remaining_task_hours(row) for row in week_tasks), 1)
         daily_hours = []
-        for offset in range(7):
-            day = today + timedelta(days=offset)
+        for offset in range(5):
+            day = week_start + timedelta(days=offset)
             hours = round(sum(remaining_task_hours(row) for row in assigned if row["due_date"] == day.isoformat()), 1)
             daily_hours.append({"label": day.strftime("%a"), "date": day.isoformat(), "hours": hours, "percent": min(100, round(hours / WORK_DAY_HOURS * 100))})
         percent = min(140, round(weekly_hours / WORK_WEEK_HOURS * 100))

@@ -307,7 +307,7 @@
             <span><small>Open work</small><strong>{{load.open_tasks}} tasks</strong></span>
             <span><small>Total open</small><strong>{{'%g'|format(load.open_hours)}}h</strong></span>
           </div>
-          <div class="daily-capacity">
+          <div class="daily-capacity" style="grid-template-columns:repeat(5,1fr)">
             {% for day in load.daily_hours %}
             <div><span>{{day.label}}</span><b style="height:{{[day.percent,100]|min}}%"></b><small>{{'%g'|format(day.hours)}}h</small></div>
             {% endfor %}

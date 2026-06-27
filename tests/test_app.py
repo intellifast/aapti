@@ -534,6 +534,10 @@ class AgencyPlatformTests(unittest.TestCase):
         self.assertEqual(team.status_code, 200)
         for text in (b"8h/day", b"40h/week", b"Assigned this week", b"Available", b"Next due work", b"Capacity overload planning task", b"Overloaded"):
             self.assertIn(text, team.data)
+        for day in (b"Mon", b"Tue", b"Wed", b"Thu", b"Fri"):
+            self.assertIn(b"<span>" + day + b"</span>", team.data)
+        self.assertNotIn(b"<span>Sat</span>", team.data)
+        self.assertNotIn(b"<span>Sun</span>", team.data)
         dashboard = client.get("/")
         self.assertIn(b"Team capacity", dashboard.data)
         self.assertIn(b"h / 40h this week", dashboard.data)
